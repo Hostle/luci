@@ -1,0 +1,1374 @@
+#! /usr/bin/lua
+
+
+--<============================================================================================================>--
+--[[ Hostles Pure Lua FTP Server ]]--
+
+--[ Version 1.06 ]--
+
+-- [ FIXES ] --
+
+-- now fully browser compatible, log in thru browser via (ftp://user:pass@ip:port)
+-- multiple concurrent connections is now done properly using coroutines :)
+-- fixed directory navigation and added path scrubber to clean up absolute paths
+
+
+--<============================================================================================================>--
+
+
+
+
+--########################################### Name Space #######################################################--
+
+--## Load Modules ##--
+require ("uci")
+local nix = require ("nixio")
+local socket = require("socket")
+local sys = require ("luci.sys")
+local fs = require ("nixio.fs")
+local Serial = require("luars232")
+local cbox = require("cbox.libcbox2")
+local uci = uci.cursor()
+local sbuf = {}
+
+--[[ LOCAL VARIABLES ]]--
+local conf = "cboxSvr";
+local secTmp = "temp";
+local secSck = "socket";
+local secLog = "log";
+local secTme = "light"
+local verbose = 1;
+local res;
+local data;
+local option;
+
+--[[ ASSIGN SERIAL PORT NAME  ]]--
+local file = io.popen("ls /dev | grep 'ACM*' ")
+local pname = file:read("*l"); file:close();
+local portName = string.format("/dev/%s", tostring(pname)) or 0;
+
+--[[ LOAD CONFIGUARTION SETTINGS INTO A KEY/VALUE TABLE ]]--
+local config = {
+	['TEMP_HIGH'] = uci:get(conf,secTmp,[[TEMP_HIGH]]);
+	['TEMP_LOW']  = uci:get(conf,secTmp,[[TEMP_LOW]]);
+	['HUM_HIGH']  = uci:get(conf,secTmp,[[HUM_HIGH]]);
+	['HUM_LOW']   = uci:get(conf,secTmp,[[HUM_LOW]]);
+	['VERBOSE']   = uci:get(conf,secLog,[[VERBOSE]]);
+	['LOG_LEV']   = uci:get(conf,secLog,[[LOG_LEV]]);
+	['SCK_HOST']  = "localhost";
+	['SCK_PORT']  = "8383";
+	['LIGHT_ON']  = uci:get(conf,secTme,[[LIGHT_ON]]);
+	['LIGHT_OFF'] = uci:get(conf,secTme,[[LIGHT_OFF]]);
+
+
+};
+
+
+--[[ Globals Variables ]]--
+local session = { station = "default",username = "default",directory = "default",password = "default" }
+local t_mode = "BINARY"
+local SckHnd
+local user_db
+local file_db
+local arg = {}
+local cmds = {}
+local stations = {}
+local connections = {}
+local host = tonumber(config.SCK_HOST)
+local port = tonumber(config.SCK_PORT)
+local sport
+local VERSION = "1.00.1 (Stable Version)"
+local verbose = tonumber(config.VERBOSE) or 0
+local bufferFile = "/tmp/queue"
+
+
+--[[ SERIAL PORT SETTINGS ]]--
+SERIAL = {
+	BAUD = 115200;
+	DATA_BITS = 8;
+	PARITY = 'NONE';
+	STOP_BITS = 1;
+	FLOW_CONTROL = 'OFF';
+};
+
+
+--########################################### FIFO BUFFER QUEUE FUNCTIONS #######################################################--
+
+function fifo(func)
+  local queue = dofile(bufferFile)
+  local result = func(queue)
+  for k, v in ipairs(queue) do
+    queue[k] = ("%q,\n"):format(v)
+  end
+  table.insert(queue, "}\n")
+  queue[0] = "return {\n"
+  queue = table.concat(queue, "", 0)
+  local f = assert(io.open(bufferFile, "w"))
+  f:write(queue)
+  f:close()
+  return result
+end
+
+function newMsg(some_data)
+  fifo(
+    function(queue)
+      table.insert(queue, some_data)
+    end
+  )
+end
+
+function nextMsg()
+  -- returns nil if queue is empty
+  return fifo(
+    function(queue)
+      return table.remove(queue, 1)
+    end
+  )
+end
+
+
+--########################################### Serial Functions ##############################################--
+
+function syncTime(SckHnd, sport)
+	local stime = tostring(os.time(os.date('*t')));
+	local len = stime:len();
+	local err, data = cbox:readPort(sport, 3, 5000, 1)
+	if( data == "RTR") then
+		if(cbox:writePort(sport, stime,10) == 0) then
+			local err, res = cbox:readPort(sport, len, len*1000, 1)
+			if(SckHnd) then SckHnd:send(res.."\n") end;
+		return;
+		end;
+	end;
+    	if(SckHnd) then SckHnd:send("FUNCTION [ syneTime() ] FAILED. ERROR ["..err.."]\n") end;
+	return;
+end
+
+function timeNow(SckHnd, sport)
+local uci = uci.cursor();
+local conf = "cboxStats";
+local sec = "time";
+local option  = "timeNow";
+local err, data = cbox:readPort(sport, 3, 5000, 1);
+
+	if( data == "RTS") then
+		local err, res = cbox:readPort(sport, 5, 8000, 1);
+		if(res) then
+			if(res:len() == "5") then
+				uci:set(conf,sec,option,tostring(res));
+				uci:commit(conf);
+			end
+			SckHnd:send(res.."\n");
+		end;
+	return;
+	end;
+    SckHnd:send("FUNCTION [ timeNow() ] FAILED. ERROR ["..err.."]\n");
+   return;
+end
+
+function userControl(SckHnd, sport, ov)
+	local userCon = ov[2];
+	local len = userCon:len();
+	local err, data = cbox:readPort(sport, 3, 5000, 1)
+	if( data == "RTR") then
+		if(cbox:writePort(sport, userCon,10) == 0) then
+			local err, res = cbox:readPort(sport, len, len*1000, 1)
+			if(SckHnd) then SckHnd:send(res.."\n") end;
+		return;
+		end;
+	end;
+    	if(SckHnd) then SckHnd:send("FUNCTION [ userControl() ] FAILED. ERROR ["..err.."]\n") end;
+	return;
+end
+
+
+function updateConfig(SckHnd,sport)
+local uci = uci.cursor()
+local config = {
+	['TEMP_HIGH'] = uci:get(conf,secTmp,[[TEMP_HIGH]]);
+	['TEMP_LOW']  = uci:get(conf,secTmp,[[TEMP_LOW]]);
+	['HUM_HIGH']  = uci:get(conf,secTmp,[[HUM_HIGH]]);
+	['HUM_LOW']   = uci:get(conf,secTmp,[[HUM_LOW]]);
+	['VERBOSE']   = uci:get(conf,secLog,[[VERBOSE]]);
+	['LOG_LEV']   = uci:get(conf,secLog,[[LOG_LEV]]);
+	['SCK_HOST']  = "localhost";
+	['SCK_PORT']  = "8383";
+	['LIGHT_ON']  = uci:get(conf,secTme,[[LIGHT_ON]]);
+	['LIGHT_OFF'] = uci:get(conf,secTme,[[LIGHT_OFF]]);
+
+
+};
+
+local err, data = cbox:readPort(sport, 3, 5000, 1);
+	if( data == "RTR") then
+		if(cbox:writePort(sport, config.TEMP_HIGH,10) == 0) then
+			cbox:readPort(sport,2,4000,1)
+		end
+		if(cbox:writePort(sport, config.TEMP_LOW,10) == 0) then
+		cbox:readPort(sport,2,4000,1);
+		end;
+
+		if(cbox:writePort(sport, config.HUM_HIGH,10) == 0) then
+		cbox:readPort(sport,2,4000,1);
+		end;
+	
+		if(cbox:writePort(sport, config.HUM_LOW,10) == 0) then
+			cbox:readPort(sport,2,4000,1);
+		end;
+
+		if(cbox:writePort(sport, config.LIGHT_ON,10) == 0) then
+			cbox:readPort(sport,2,4000,1);
+		end;
+
+		if(cbox:writePort(sport, config.LIGHT_OFF,10) == 0) then
+			cbox:readPort(sport,2,4000,1);
+		end;
+	  if(SckHnd) then SckHnd:send("CONFIG UPDATED SUCCESSFULLY \n") end ;
+	  return(0);
+	end;
+  if(SckHnd) then SckHnd:send("FUNCTION [ updateConfig() ] FAILED. ERROR ["..err.."]\n")end
+  return(1);
+end
+
+function setLeds(SckHnd,sport,leds)
+local err, data = cbox:readPort(sport, 3, 5000, 1);
+	if( leds and data == "RTR") then
+		if(cbox:writePort(sport, tonumber(leds[2]),10) == 0) then
+			cbox:readPort(sport,leds[2]:len(),5000,1);
+		end;
+		if(cbox:writePort(sport, tonumber(leds[3]),10) == 0) then
+			cbox:readPort(sport,leds[3]:len(),5000,1);
+		end;
+		if(cbox:writePort(sport, tonumber(leds[4]),10) == 0) then
+			cbox:readPort(sport,leds[4]:len(),5000,1);
+		end;
+	SckHnd:send("LED COLORS UPDATED SUCCESSFULLY\n")
+	return(0);
+	end;
+  SckHnd:send("FUNCTION [ setLeds() ] FAILED. ERROR ["..err.."]\n")
+  return(1);
+end
+
+function fanMode(s)
+	local switches = { "OFF", "ON", "TEST MODE", "SERVICE MODE" };
+
+	for i,v in pairs(switches) do
+		if(tonumber(s) == i-1) then
+			return(v);
+		end;
+	end;
+  return;
+end
+
+function fanStatus(SckHnd, sport, fan)
+local uci = uci.cursor();
+local conf = "cboxStats";
+local sec = "fan";
+local option  = "fan" .. fan[2];
+print(option)
+local err, data = cbox:readPort(sport, 3, 5000, 1);
+	if fan and (data == "RTR") then
+		if(cbox:writePort(sport, fan[2], 10) == 0) then
+			cbox:readPort(sport, 1,3500,1)
+			local err, s = cbox:readPort(sport,1,3500,1)
+				if(s and type(tonumber(s)) == "number" and tostring(s):len() == 1) then
+					local res = fanMode(s);
+					if(res) then
+						uci:set(conf,sec,option,res);
+						uci:commit(conf);
+						SckHnd:send(res.."\n");
+					return;
+					end
+				SckHnd:send("FUNCTION [ fanStatus() ] FAILED. ERROR [NO RESPONSE]\n");
+				return;
+				end;
+		SckHnd:send("FUNCTION [ fanStatus() ] FAILED. ERROR [RTR NOT RECEIVED]\n");
+		return;
+		end;
+  	SckHnd:send("FUNCTION [ fanStatus() ] FAILED. ERROR ["..err.."]\n");
+	print("ERROR [fanStatus() Failed to Fetch fanStatus :line 220]");
+	return;
+	end
+end
+
+function fanSwitch(SckHnd,sport, switch)
+	local uci = uci.cursor();
+	local conf = "cboxStats";
+	local sec = "fan";
+	local option  = "fan" .. switch[2];
+	local err, data = cbox:readPort(sport, 3, 5000, 1);
+	
+	if( switch and data == "RTR") then
+		if(cbox:writePort(sport, switch[2], 10) == 0) then
+			cbox:readPort(sport, 1,3500,1);
+		end;
+		if(cbox:writePort(sport, switch[3], 10) == 0) then
+			cbox:readPort(sport, 1,3500,1);
+		end;
+
+		local err, res = cbox:readPort(sport,1,3500,1);
+		if(res) then
+			uci:set(conf,sec,option,res);
+			uci:commit(conf);
+			SckHnd:send(res.."\n");
+		return;
+		end;
+	SckHnd:send("FUNCTION [ fanSwitch() ] FAILED. ERROR [RTR NOT RECEIVED]\n");
+	return;
+	end;
+  SckHnd:send("FUNCTION [ fanSwitch() ] FAILED. ERROR ["..err.."]\n");
+  print("ERROR [fanSwitch() Failed to Fetch fanSwitch :line 250]");
+  return;
+end
+
+function lightSwitch(SckHnd,sport, switch)
+	local uci = uci.cursor();
+	local conf = "cboxStats";
+	local sec = "light";
+	local option  = "light" .. switch[2];
+	local err, data = cbox:readPort(sport, 3, 5000, 1);
+
+	if( switch and data == "RTR") then
+		if(cbox:writePort(sport, switch[2], 10) == 0) then
+			cbox:readPort(sport, 1,3500,1);
+		end;
+		if(cbox:writePort(sport, switch[3], 10) == 0) then
+			cbox:readPort(sport, 1,3500,1);
+		end;
+
+		local err, res = cbox:readPort(sport,1,3500,1);
+		if(res) then
+			--uci:set(conf,sec,option,res);
+			--uci:commit(conf);
+			SckHnd:send(res.."\n");
+		return;
+		end;
+	SckHnd:send("FUNCTION [ lightSwitch() ] FAILED. ERROR [RTR NOT RECEIVED]\n");
+	return;
+	end;
+  SckHnd:send("FUNCTION [ lightSwitch() ] FAILED. ERROR ["..err.."]\n");
+  print("ERROR [lightSwitch() Failed to Fetch lightSwitch :line 306]");
+  return;
+end
+
+function avgTemp(SckHnd, sport)
+local uci = uci.cursor();
+local conf = "cboxStats";
+local sec = "temp";
+local option  = "avgTemp"
+
+	if(cbox:readPort(sport, 3, 5000, 1) == 0) then
+		local err, temp =  cbox:readPort(sport,5,8000,1);
+		if(temp and tostring(temp):len() == 5 ) then
+			uci:set(conf,sec,option,temp);
+			uci:commit(conf);
+			SckHnd:send(temp.."\n");
+			return;
+		end
+	end
+	SckHnd:send("FUNCTION [ avgTemp() ] FAILED. ERROR ["..err.."]\n");	
+	print("ERROR [avgTemp() Failed to Fetch Temperature :line 125]");
+	return;
+end
+
+function getTemp(SckHnd, sport, dht)
+local uci = uci.cursor();
+local conf = "cboxStats";
+local sec = "temp";
+local option  = "sen"..dht[2].."Temp"
+local err, data = cbox:readPort(sport, 3, 5000, 1);
+
+	if(dht and data == "RTR") then
+		if(cbox:writePort(sport, dht[2], 10) == 0) then
+			cbox:readPort(sport, 1,3500,1);
+			err, temp =  cbox:readPort(sport,5,8000,1);
+			if(temp and tostring(temp):len() == 5) then
+				uci:set(conf,sec,option,temp);
+				uci:commit(conf);
+				SckHnd:send(temp.."\n");
+			return;
+			end;
+		SckHnd:send("FUNCTION [ getTemp() ] FAILED. ERROR [FAILED TO FETCH TEMPERATURE]\n");
+		return;
+		end;
+	SckHnd:send("FUNCTION [ getTemp() ] FAILED. ERROR [RTR NOT RECEIVED]\n");
+	return;
+	end;
+	SckHnd:send("FUNCTION [ getTemp() ] FAILED. ERROR ["..err.."]\n");
+	print("ERROR [getTemp() Failed to Fetch Temperature :line 271]");
+	return;
+end
+
+function avgHum(SckHnd, sport)
+local uci = uci.cursor();
+local conf = "cboxStats";
+local sec = "hum"
+local option  = "avgHum";
+
+	if(cbox:readPort(sport, 3, 5000, 1) == 0) then
+		local err, hum =  cbox:readPort(sport,5,8000,1);
+		if(hum and tostring(hum):len() == 5 ) then
+			uci:set(conf,sec,option,hum);
+			uci:commit(conf);
+			SckHnd:send(hum.."\n");
+			return ;
+		end;
+	SckHnd:send("FUNCTION [ avgHum() ] FAILED. ERROR [HUMIDITY NOT RECEIVED]\n");
+	return;
+	end;
+	SckHnd:send("FUNCTION [ avgHum() ] FAILED. ERROR ["..err.."]\n");
+	print("ERROR [avgTemp() Failed to Fetch Temperature :line 125]");
+	return;
+end
+
+function getHum(SckHnd, sport, dht)
+local uci = uci.cursor();
+local conf = "cboxStats";
+local sec = "hum";
+local option  = "sen"..dht[2].."Hum"
+local err, data = cbox:readPort(sport, 3, 5000, 1);
+
+	if( dht and data == "RTR") then
+		if(cbox:writePort(sport, dht[2], 10) == 0) then
+			cbox:readPort(sport, 1,3500,1);
+			err, hum =  cbox:readPort(sport,5,8000,1);
+			if(hum and tostring(hum):len() == 5) then
+				uci:set(conf,sec,option,hum);
+				uci:commit(conf);
+				SckHnd:send(hum.."\n");
+			return;
+			end;
+		SckHnd:send("FUNCTION [ getHum() ] FAILED. ERROR [FAILED TO FETCH HUMIDITY]\n");
+		return;
+		end;
+	SckHnd:send("FUNCTION [ getHum() ] FAILED. ERROR [RTR NOT RECEIVED]\n");
+	return
+	end;
+	SckHnd:send("FUNCTION [ getHum() ] FAILED. ERROR ["..err.."]\n");
+	print("ERROR [getTemp() Failed to Fetch Humidity :line 271]");
+	return;
+end
+
+
+function init(SckHnd)
+	print("\n\n-------------------------------- BEGIN INIT-------------------------------------\n\n");
+	err, data = cbox:readPort(sport,4,15000,1);
+      if(data == "INIT") then
+	nixio.nanosleep(0, 20000000);
+	process_cmd(sport, "UC");
+	nixio.nanosleep(0, 20000000);
+	process_cmd(sport,"ST");	
+	print("\n\n------------------------------ INIT COMPLETE ---------------------------------\n\n");
+	return(0);
+      end;
+    return(1);
+end
+
+
+--########################################### Utility Functions ##############################################--
+
+--## check if a given path exists ##--
+function path_exists(path)
+  if fs.stat(path, "type") == "reg" or fs.stat(path, "type") == "dir" then return true end
+ return false
+end
+
+--## fix up garbled paths ##--
+local function scrub_path(dir)
+  local grb = "../..+"
+  if dir:find(grb) then
+	dir = dir:gsub("%.","")
+	dir = dir:gsub("//+","/")
+	print(dir)
+  end
+   print("DIR "..dir)
+ return dir
+end
+
+local function remove_con(SckHnd)
+  for i,v in pairs (connections) do
+    if i == SckHnd then
+      if(verbose > 0) then print("Removing: "..tostring(SckHnd).." From connections") end
+      connections[SckHnd] = nil
+    end
+  end
+ return
+end
+
+local function valid_sess(SckHnd)
+  local is_valid = false
+
+  for i,v in pairs(connections) do
+    if i == SckHnd then is_valid = true end
+  end
+ return(is_valid)
+end
+
+local function new_con(SckHnd,ip,homedir,cdir)
+  connections[SckHnd] = { ["ip"]=ip, ["homedir"]=homedir, ["cdir"]=cdir }
+  if(verbose > 0) then
+    print(" New Client ")
+    print("############")
+    for i,v in pairs(connections[SckHnd]) do
+      print(i.." : "..v)
+    end
+  end
+ return
+end
+
+local function update_dir(SckHnd,newdir)
+  newdir = scrub_path(newdir)
+  connections[SckHnd].cdir = newdir
+  if(verbose > 0) then print(tostring(SckHnd).." Changed Dir: "..connections[SckHnd].cdir) end
+ return
+end
+
+local function cur_dir(SckHnd)
+  curdir = connections[SckHnd].cdir
+  if(verbose > 0 ) then print(tostring(SckHnd).." Current Dir: "..curdir) end
+ return curdir
+end
+
+--################################################ Logger Function ###########################################--
+
+local function logger(msg,dir)
+  local log_file = "/tmp/cboxServer.log"
+  local dte = os.date()
+  local rsp
+  if tostring(dir) == "svr" then snd = "==> " rsp = "SVR" else snd = "<== " rsp ="CLT" end
+   local file = io.open(log_file, "a+")
+   file:write(string.format("%s [ %s ]  %s : \t%s \n",snd,dte,rsp,msg))
+   file:close()
+ return
+end
+
+--############################################# SIMPLE FTP FUNCTIONS #########################################--
+
+--## get file size ##--
+local function fsize (file)
+  local current = file:seek() -- get current position
+  local size = file:seek("end") -- get file size
+  file:seek("set", current) -- restore position
+ return size
+end
+
+--## Send system Type ##--
+local function do_system(SckHnd)
+  nixio.nanosleep(0, 1000000)
+  SckHnd:send("215 UNIX Type: L8\n")
+ return
+end
+
+--## Set tranfer mode ##--
+local function do_type(SckHnd,mode)
+  if mode:upper() == "A" then
+    t_mode = "ASCII"
+  elseif mode:upper() == "I" then
+    t_mode = "BINARY"
+  else
+    t_mode = mode
+  end
+  nixio.nanosleep(0, 1000000)
+  SckHnd:send("200 Type set to "..t_mode.."\n")
+  arg = {}
+ return
+end
+
+--## Send Working Dir ##--
+local function do_pwd(SckHnd)
+  nixio.nanosleep(0, 1000000)
+  local curDir = cur_dir(SckHnd)
+  SckHnd:send("257 "..curDir.."\n")
+ return
+end
+
+--## Nice exit function ##--
+local function do_exit(SckHnd)
+  nixio.nanosleep(0, 1000000)
+  SckHnd:send("221 Goodbye.\n")
+  --print(string.format("Discnnection [%d] { %s Disonnected on Port %d on %s }", cons, id, port, os.date()))
+  SckHnd:close()
+ return
+end
+
+--######################################### Unsupported CMDS ################################################--
+
+--## Acct not supported by FTP  TODO add support ##--
+local function do_acct(SckHnd)
+  nixio.nanosleep(0, 1000000)
+  SckHnd:send("202 Command ACCT not implemented\n")
+ return
+end
+
+--## Currently Unavailble TODO add support ##--
+local function do_feat(SckHnd)
+  nixio.nanosleep(0, 1000000)
+  SckHnd:send("502 Unsupported Cmd\n")
+ return
+end
+
+local function do_appen(SckHnd)
+  nixio.nanosleep(0, 1000000)
+  SckHnd:send("502 Unsupported Cmd\n")
+ return
+end
+
+--## Send Abort Last cmd ##--
+local function do_abort(SckHnd)
+  nixio.nanosleep(0, 1000000)
+  SckHnd:send("226 ABOR command successful\n")
+ return
+end
+
+local function do_opts(SckHnd)
+  nixio.nanosleep(0, 1000000)
+  SckHnd:send("200 OPTS UTF8 command successfull - UTF8 encoding now ON\n")
+ return
+end
+
+--############################################# PORT FUNCTIONS ###############################################--
+
+--## determine is pasv is available ##--
+local function do_pset()
+  if pasv_set then return true else return false end
+end
+
+--## Convert data_chn to hex for calculation ##--
+local function DEC_HEX(IN)
+  local B,K,OUT,I,D=16,"0123456789ABCDEF","",0
+  while IN > 0 do
+    I=I+1
+    IN,D=math.floor(IN/B),math.mod(IN,B)+1
+    OUT=string.sub(K,D,D)..OUT
+  end
+ return OUT
+end
+
+--## Do the actual calculation  ##--
+--## and convert output to host ##--
+--## and port of client waitng  ##--
+--## to send the file ##--
+local function do_parse(data_chn)
+  d_port = nil
+  d_host = nil
+  local str = "%d+,%d+,%d+,%d+,%d+,%d+"
+  arg = nil
+  arg = {} -- clear the arg table first
+  local n = 0
+  if string.find(data_chn, str) then
+    line = string.gsub(data_chn, ",", " ")
+    for i in string.gmatch(line, "%S+") do
+      n = n +1
+      arg[n]=i
+    end
+  end
+  d_host = arg[1].."."..arg[2].."."..arg[3].."."..arg[4] 	-- ip from recieved from PORT cmd
+  d_port1 = DEC_HEX(tonumber(arg[5])) 				-- convert high set of port #'s to hex
+  d_port2 = DEC_HEX(tonumber(arg[6])) 				-- convert low set of port #'s to hex
+  d_port3 = "0x"..d_port1..d_port2 				-- create the hex rep of the port #
+  d_port = tonumber(d_port3) 					-- convert port # from hex to back to dec
+  arg ={}							-- clear the arg table
+ return d_host, d_port 						-- return the ip and port of the data chn
+end
+
+local function do_port(SckHnd,d_host,d_port)
+  if d_host and d_port then
+    pasv_mode = false
+    nixio.nanosleep(0, 1000000)
+    SckHnd:send("200 PORT command successful.\n")
+  else
+    SckHnd:send("425 PORT Cannot open data connection.\n")
+    if(verbose > 1) then print("PORT ERROR !!") end
+  end
+ return
+end
+
+--############################################# PASV FUNCTIONS ###############################################--
+
+--## get the high bit of the port number ##--
+local function getHighByte16( value )
+  local high_value = math.floor(value/256)
+ return high_value
+end
+
+--## get the low bit of the port number ##--
+local function getLowByte16( value )
+  local high_value = math.floor(value/256)
+  high_value = high_value*256
+  local low_value = value - high_value
+ return low_value
+end
+
+--## Pasv support added in version 1.00.3 ##--
+--## New pasv cmd :) ##--
+local function do_pasv(SckHnd)
+  if not pasv_mode then
+    SckHnd:send("502 passive connection unavailble !!\n")	-- client failed to connect
+   return
+  end
+  local ip = sbuf.host
+  math.randomseed(string.byte(socket.gettime() * 1e6))  --## get a seed 
+  pport = string.format("85%d%d",string.sub(math.random(), -1 ), string.sub(math.random(), -1)) --## seed
+  ph = getHighByte16( pport )
+  pl = getLowByte16( pport )
+  local str = "%d+%.%d+%.%d+%.%d+"
+  argv = {} 					-- clear the arg table first
+  local n = 0
+
+  if string.find(ip, str) then
+    line = string.gsub(ip, "%.", " ") 	-- seperate the ip into 4 seperate elements
+    for i in string.gmatch(line, "%S+") do
+      n = n +1				-- increment the index
+      argv[n]=i				-- add elements to the arg tbl
+    end
+  end
+  d_host = string.format("%d,%d,%d,%d,", argv[1],argv[2],argv[3],argv[4])     -- prepare ip (format n,n,n,n,)
+  d_port = string.format("%d,%d", ph,pl) 				        -- prepare port (format ph,pl)
+  pasv_chn = string.format("%d,%d,%d,%d,%d,%d", argv[1],argv[2],argv[3],argv[4],ph,pl)   --prep payload
+  data = socket.tcp() 					-- grab a sock handle
+  server2, err = assert(socket.bind(ip, pport)) 		-- bind it to the data channel
+  server2:settimeout(15)					-- Set a 5 sec timeout to connect
+  if not err then
+    nixio.nanosleep(0, 1000000)
+    SckHnd:send("229 Entering Passive Mode ("..pasv_chn..")\n") -- inform the client
+    data = server2:accept()					-- wait for the connection for 5 secs
+  else
+    if(verbose > 0) then print(err) end
+    nixio.nanosleep(0, 1000000)
+    SckHnd:send("425 Failed to open passive connection\n")	-- client failed to connect
+  end
+ server2:close()
+ return
+end
+
+--########################################## LOGINS / PASSWORDS  #############################################--
+
+--## SYSTEM LOG IN
+--## User login Function ##--
+function do_login(SckHnd, username)
+  local username = username or "root";
+  local ip = SckHnd:getpeername()
+  if(verbose > 0 ) then print("do_login:",ip,username or "root") end
+  logger("( "..ip.." ) CMD: USER <> ARG[1]= "..username,"clt") 
+  session["username"] = username
+  if username and nixio.getpw(username) then
+    logger("( "..ip.." ) CMD: USER <> SUCCESFUL !!","svr")
+    nixio.nanosleep(0, 1000000)
+    SckHnd:send("331 Password required for "..username.."\n")
+  else
+    logger("( "..ip.." ) CMD: USER <> FAILED !!","svr")
+    nixio.nanosleep(0, 1000000)
+    SckHnd:send("530 Need account for login.\n")
+    SckHnd:shutdown(both)
+    do_exit(SckHnd)
+  end
+ return
+end
+
+--## Check password is correct ##--
+function do_pass(SckHnd,username, pass)
+  local username = "root"
+  local pass = 'firewrt19'
+  if username and pass and sys.user.checkpasswd(username, pass) then
+    arg[2] = nil		-- remove pass from table
+    local homedir
+    local ip = SckHnd:getpeername(SckHnd)
+     logger("( "..ip.." ) CMD: PASS <> ARG[1]= ********","clt") 
+    if username == "root" then
+      homedir = "/root"
+    else
+      homedir = "/home/"..username
+    end
+
+    if(verbose > 0 ) then print(string.format("SckHnd: %s  IP: %s  Home Dir: %s  Cur Dir: %s", tostring(SckHnd),ip,homedir,homedir)) end
+    new_con(SckHnd,ip,homedir,homedir)
+    --for i,v in pairs(connections) do logger(i,v) end
+    nixio.nanosleep(0, 1000000)
+    SckHnd:send("230 Login successful.\n")
+    logger("( "..ip.." ) CMD: PASS <>  SUCCESSFUL !!","svr") 
+    logger(string.format("SckHnd: %s  IP: %s  Home Dir: %s  Cur Dir: %s", tostring(SckHnd),ip,homedir,homedir),"svr")
+  else
+    logger("( "..ip.." ) CMD: PASS <> FAILED !!","svr") 
+    nixio.nanosleep(0, 1000000)
+    SckHnd:send("530 Login incorrect.\n")
+    SckHnd:shutdown(both)
+    do_exit(SckHnd)
+  end
+ return
+end
+--## END SYSTEM LOG IN ##--
+
+--############################################# FTP FUNCTIONS ################################################--
+
+--## LIST ##--
+local function do_ls(SckHnd,dir)
+  arg = {}
+  local buf = {}
+  local n = 0
+  local curDir = cur_dir(SckHnd)
+  if(verbose > 0 ) then print(curDir) end
+  local ip = SckHnd:getpeername()
+  if dir == nil then
+    dir = curDir
+  else
+    dir = dir
+  end
+    logger("( "..ip.." ) CMD: LIST <> ARG[1]= "..dir,"clt")
+  if pasv_mode then print("pasv_mode = 1") else print("pasv_mode = 0") end
+
+  if not path_exists(dir) then
+    nixio.nanosleep(0, 1000000)
+    logger("( "..ip.." ) CMD: LIST <> FAILED !!","svr")
+    SckHnd:send("501 File or directory not found. ( "..dir.." )\n")
+  else
+    local ls = string.format("ls -l %s", dir)
+    local f = io.popen(ls)	-- run command
+    local ret = f:read("*a")
+    f:close()
+    if(verbose > 0) then print(ret) end
+
+    if not pasv_mode then
+      data = socket.tcp()
+      data:connect(d_host, d_port)
+      data:settimeout(1)
+    end
+    nixio.nanosleep(0, 100000)
+    SckHnd:send("125 Transfer beggining\n")
+    nixio.nanosleep(0, 100000)
+    data:send("\n"..ret.."\n")
+    nixio.nanosleep(0, 100000)
+    SckHnd:send("226 Transfer complete\n")
+    data:close()
+    logger("( "..ip.." ) CMD: LIST <> SUCCESSFUL !!","svr")
+  end
+  data:close()
+  if pasv_mode then server2:close() end
+ return
+end
+ 
+--## CWD -##--
+function do_cd(SckHnd,dir)
+  arg = {}
+  if valid_sess(SckHnd) then
+    local ip = SckHnd:getpeername()
+    local curDir = cur_dir(SckHnd)
+    if not dir then
+      dir = curDir
+    else
+      dir = dir
+    end
+    logger("( "..ip.." ) CMD: CWD <> ARG[1]= "..dir,"clt")
+    path = scrub_path(dir)
+    if(verbose > 1) then
+      print("PATH: "..dir)
+    end
+    if not fs.stat(path, "type") == "dir" then
+      logger("( "..ip.." ) CMD: CWD <> FAILED !!","svr")
+      nixio.nanosleep(0, 1000000)
+      SckHnd:send(dir.."501 Not a directory. ( "..dir.." )\n")
+    else
+      nixio.chdir(path)
+      scrub_path(dir)
+      update_dir(SckHnd, dir)
+      logger("( "..ip.." ) CMD: CWD <> SUCCESSFUL !!","svr")
+      nixio.nanosleep(0, 1000000)
+      SckHnd:send("250 CWD command successful.\n")
+    end
+  end
+ return
+end
+
+--## CDUP ##--
+function do_cdup(SckHnd)
+  arg = {}
+  if session.valid then
+    local ip = SckHnd:getpeername()
+    logger("( "..ip.." ) CMD: CDUP <> ARG[1]= ","clt")
+    local path = connections[SckHnd].homedir
+    if(verbose > 0) then print(path) end
+
+    if not path_exists(path) then
+      logger("( "..ip.." ) CMD: CDUP <> FAILED !!","svr")
+      nixio.nanosleep(0, 1000000)
+      SckHnd:send("501 File or directory does not exist. ( "..path.." )\n")
+    else
+      if not fs.stat(path, "type") == "dir" then
+        logger("( "..ip.." ) CMD: CDUP <> FAILED !!","svr")
+        nixio.nanosleep(0, 1000000)
+        SckHnd:send("501 Not a directory. ( "..path.." )\n")
+      else
+        nixio.chdir(path)
+        update_dir(SckHnd,path)
+        logger("( "..ip.." ) CMD: CDUP <> SUCCESSFUL !!","svr")
+        nixio.nanosleep(0, 1000000)
+        SckHnd:send("250 CDUP command successful.\n")
+      end
+    end
+  end
+ return
+end
+
+--## DELE ##--
+function do_rm(SckHnd,file)
+  arg = {}
+  if valid_sess(SckHnd) then
+    local ip = SckHnd:getpeername()
+    local file = file
+    if file == nil then
+      nixio.nanosleep(0, 1000000)
+      SckHnd:send("501 Not enough parameters.\n")
+    else
+      local curDir = cur_dir(SckHnd)
+      file = curDir .. file
+      logger("( "..ip.." ) CMD: DELE <> ARG[1]= "..file,"clt")
+      if not fs.stat(file, "type") == "reg" then
+        logger("( "..ip.." ) CMD: DELE <> FAILED !!","svr")
+        nixio.nanosleep(0, 1000000)
+        SckHnd:send("501 File not found ( "..file.." ) specify absolute path !!\n")
+      else
+        if not fs.stat(file, "w") then
+          logger("( "..ip.." ) CMD: DELE <> FAILED !!","svr")
+          nixio.nanosleep(0, 1000000)
+          SckHnd:send("532 Permission denied, ( "..file.." ) is read only.\n")
+        else
+          fs.remove(file)
+          logger("( "..ip.." ) CMD: DELE <> SUCCESSFUL !!","svr")
+          nixio.nanosleep(0, 1000000)
+          SckHnd:send("200 RM command successful, Removed ( "..file.." )\n")
+        end
+      end
+    end
+  end
+ return
+end
+
+--## Windows XRMD ##--
+function do_xrmd(SckHnd,dir)
+  arg = {}
+  if valid_sess(SckHnd) then
+    local ip = SckHnd:getpeername()
+    local dir = dir
+    if dir == nil then
+      nixio.nanosleep(0, 1000000)
+      SckHnd:send("501 Not enough parameters.\n")
+    else
+      logger("( "..ip.." ) CMD: DELE <> ARG[1]= "..dir,"clt")
+      if not path_exist(dir) then
+        logger("( "..ip.." ) CMD: DELE <> FAILED !!","svr")
+        nixio.nanosleep(0, 1000000)
+        SckHnd:send("501 Directory not found ( "..dir.." ) specify absolute path !!\n")
+      else
+          fs.delete(dir)
+          logger("( "..ip.." ) CMD: DELE <> SUCCESSFUL !!","svr")
+          nixio.nanosleep(0, 1000000)
+          SckHnd:send("200 RM command successful, Removed ( "..dir.." )\n")
+      end
+    end
+  end
+ return
+end
+
+--## RMD ##--
+function do_rmdir(SckHnd,dir)
+  arg = {}
+  local curDir = cur_dir(SckHnd)
+  if valid_sess(SckHnd) then
+    local ip = SckHnd:getpeername()
+    if dir == nil then
+      nixio.nanosleep(0, 1000000)
+      SckHnd:send("501 Not enough parameters.\n")
+    else
+      rdir = curDir .. dir
+      logger("( "..ip.." ) CMD: RMDIR <> ARG[1]= "..rdir,"clt")
+      if not fs.stat(rdir, "type") == "dir" then
+        logger("( "..ip.." ) CMD: RMDIR <> FAILED !!","svr")
+        nixio.nanosleep(0, 1000000)
+        SckHnd:send("550 Not a valid directory, ( "..rdir.." ) specify absolute path\n")
+      else
+        if not fs.stat(rdir, "w") then
+          logger("( "..ip.." ) CMD: RMDIR <> FAILED !!","svr")
+          nixio.nanosleep(0, 1000000)
+          SckHnd:send("550 Permission denied\n")
+        else
+          fs.rmdir(rdir)
+          logger("( "..ip.." ) CMD: RMDIR <> SUCCESSFUL !!","svr")
+          nixio.nanosleep(0, 1000000)
+          SckHnd:send("250 RMD command successful, Removed "..rdir.."\n")
+        end
+      end
+    end
+  end
+ return
+end
+
+--## MKD ##---
+local function do_mkdir(SckHnd,dir)
+  arg = {}
+  local curDir = cur_dir(SckHnd)
+  if valid_sess(SckHnd) then
+    local ip = SckHnd:getpeername()
+    logger("( "..ip.." ) CMD: MKDIR <> ARG[1]= "..dir,"clt")
+    if dir == nil then
+      nixio.nanosleep(0, 1000000)
+      SckHnd:send("501 Not enough parameters.\n")
+     return
+    else
+      dir = curDir .. dir
+      if fs.stat(dir, "type") == "reg" then
+        nixio.nanosleep(0, 1000000)
+        SckHnd:send("501 File already exists. ( "..dir.." )\n")
+       return
+      else
+        if fs.stat(dir, "type") == "dir" then
+          SckHnd:send("501 Directory already exists. ( "..dir.." )\n")
+         return
+        else
+         fs.mkdir(dir,nil)
+         nixio.nanosleep(0, 1000000)
+         SckHnd:send("200 MKDIR command successful "..dir.." complete\n")
+        end
+      end
+    end
+  end
+ return
+end
+
+--## SIZE ##--
+local function do_size(SckHnd,file)
+  arg = {}
+  local curDir = cur_dir(SckHnd)
+  local ip = SckHnd:getpeername()
+  logger("( "..ip.." ) CMD: SIZE <> ARG[1]= "..file,"clt")
+  if file == nil then
+    SckHnd:send("501 Not enough parameters.\n")
+  else
+    if not path_exists(file) then
+      file = curDir .. file
+    end
+
+    if not path_exists(file) then
+      SckHnd:send("501 File or directory not found.\n")
+    else
+      local handle = io.open(file, "r")
+      local size = fsize(handle)
+      handle:close()
+      nixio.nanosleep(0, 1000000)
+      SckHnd:send("213 ".. file .." is (".. size .." bytes)\n")
+    end
+  end
+ return
+end
+
+--## GET ##--
+function do_get(SckHnd,file)
+  arg = {}
+  local curDir = cur_dir(SckHnd)
+  if valid_sess(SckHnd) then
+  local ip = SckHnd:getpeername()
+    if file == nil then
+      SckHnd:send("501 Not enough parameters.\n")
+    else
+      nfile = file
+      if not path_exists(nfile) then
+        nfile = curDir .. file
+      end
+      logger("( "..ip.." ) CMD: GET <> ARG[1]= "..file,"clt")
+      if not path_exists(nfile) then
+        SckHnd:send("501 File or directory not found. ("..nfile..")\n")
+      else
+        local handle = io.open(nfile, "r")
+	if not handle then
+          SckHnd:send("501 Could not open ("..nfile..") for reading.\n")
+        else
+	  local size = fsize(handle)
+	  local content = handle:read("*a")
+	  handle:close()
+	  if pasv_mode then print("pasv_mode = 1") else print("pasv_mode = 0") end
+	  if not pasv_mode then
+            data = socket.tcp()
+ 	    data:connect(d_host, d_port)
+	  end
+	  nixio.nanosleep(0, 1000000)
+	  SckHnd:send("150 Opening "..t_mode.." mode data connection for "..file.." ("..size.." bytes)\n")
+	  data:send(content)
+	  SckHnd:send("226 Transfer complete\n")
+	  data:close()
+          if pasv_mode then server2:close() end
+        end
+      end
+    end
+  end
+ return
+end
+
+--## PUT ##--
+local function do_put(SckHnd,file_name)
+  arg = {}
+  local curDir = cur_dir(SckHnd)
+  local ip = SckHnd:getpeername()
+  logger("( "..ip.." ) CMD: PUT <> ARG[1]= "..file_name,"clt")
+  if file_name == nil then
+    SckHnd:send("501 Not enough parameters.\n")
+  else
+    if not pasv_mode then
+      data = socket.tcp()
+      data:connect(d_host, d_port)
+    end
+    file_name = file_name
+    SckHnd:send("125 Transfer beggining\n")
+    nixio.nanosleep(0, 1000000)
+    local buf = data:receive('*a')
+    local size = buf:len()
+    SckHnd:send("150 Opening "..t_mode.." data connection for "..file_name.." ("..size.." bytes)\n")
+    local fname  = curDir .. file_name
+    local file = io.open(fname, "w")
+    if not file then
+      SckHnd:send("501 Could not open file for writing.\n")
+     return false
+    else
+      file:write(string.format("%s", buf))
+      if(verbose > 0) then print(buf) end
+      file:close()
+      data:close()
+      if pasv_mode then server2:close() end
+    end
+  end
+ return
+end
+
+--############################################# dipatch cmd table ############################################--
+
+local cmds = {
+		["USER"] = function(SckHnd, user) do_login(SckHnd,user) arg = {} return end,
+		["PASS"] = function(SckHnd, pass) do_pass(SckHnd,session.username, pass) arg = {} return end,
+		["SYST"] = function(SckHnd) do_system(SckHnd) arg = {} return end,
+		["PORT"] = function(SckHnd,data_chn) d_host, d_port = do_parse(data_chn) do_port(SckHnd,d_host, d_port) arg = {} return end,
+		["TYPE"] = function(SckHnd,mode) do_type(SckHnd,mode) arg = {} return end,
+		["XPWD"] = function(SckHnd) do_pwd(SckHnd) arg = {} return end,
+		["PWD"]  = function(SckHnd) do_pwd(SckHnd) arg = {} return end,
+		["PASV"] = function(SckHnd) pasv_mode = false do_pset() do_pasv(SckHnd,d_host, d_port) arg = {} return end,
+		["EPSV"] = function(SckHnd) pasv_mode = false do_pset() do_pasv(SckHnd,d_host, d_port) arg = {} return end,
+		["LIST"] = function(SckHnd,dir) do_ls(SckHnd,dir) arg = {} return end,
+		["NLST"] = function(SckHnd,dir) do_ls(SckHnd,dir) arg = {} return end,
+		["CWD"] = function(SckHnd,dir) do_cd(SckHnd,dir) arg = {} return end,
+		["CDUP"] = function(SckHnd) do_cdup(SckHnd) arg = {} return end,
+		["MKD"] = function(SckHnd,dir) do_mkdir(SckHnd,dir) arg = {} return end,
+		["XMKD"] = function(SckHnd,dir) do_mkdir(SckHnd,dir) arg = {} return end,
+		["RMD"] = function(SckHnd,dir) do_rmdir(SckHnd,dir) arg = {} return end,
+		["XRMD"] = function(SckHnd,dir) do_xrmd(SckHnd,dir) arg = {} return end,
+		["RETR"] = function(SckHnd,file) do_get(SckHnd,file) arg = {} return end,
+		["STOR"] = function(SckHnd,file_name) do_put(SckHnd,file_name) arg = {} return end,
+		["SIZE"] = function(SckHnd,file) do_size(SckHnd,file) arg = {} return end,
+		["FEAT"] = function(SckHnd) do_feat(SckHnd) arg = {} return end,
+		["OPTS"] = function(SckHnd) do_opts(SckHnd) arg = {} return end,
+		["APPE"] = function(SckHnd,file) do_appen(SckHnd,file) arg = {} return end,
+		["DELE"] = function(SckHnd,file) do_rm(SckHnd,file) arg = {} return end,
+		["ACCT"] = function(SckHnd) do_acct(SckHnd) arg = {} return end,
+		["EXIT"] = function(SckHnd) do_exit(SckHnd) arg = {} return end,
+		["QUIT"] = function(SckHnd) do_exit(SckHnd) arg = {} return end,
+		["ABOR"] = function(SckHnd) do_abort(SckHnd) arg = {} return end,
+		["BYE"] = function(SckHnd)  do_exit(SckHnd) arg = {} return end,
+		["SHUTDOWN"] = function(SckHnd) do_exit(SckHnd) arg = {} return end,
+		-- READY TO RECEIVE = RTR
+		['RTR'] = function(SckHnd,sport) if(cbox:writePort(sport, "RTR",10) == 0) then sendRTR(SckHnd) end end;
+		-- UPDATE CONFIG = UC
+		['UC'] = function(SckHnd, sport) if(cbox:writePort(sport, "UC",10) == 0) then updateConfig(SckHnd, sport) end  end;
+		-- FAN STATUS = FS
+		['FS'] = function(SckHnd, sport, fan) if(cbox:writePort(sport, "FS",10) == 0) then fanStatus(SckHnd, sport, fan) end end;
+		-- FAN_SWITCH = FSW
+		['FWS'] = function(SckHnd, sport, switch) if(cbox:writePort(sport, "FWS",10) == 0) then fanSwitch(SckHnd, sport,switch) end end;
+		-- LIGHT_SWITCH = LWS
+		['LWS'] = function(SckHnd, sport, switch) if(cbox:writePort(sport, "LWS",10) == 0) then lightSwitch(SckHnd, sport,switch) end end;
+		-- AVERAGE HUMIDITY STATUS
+		['AH'] = function(SckHnd, sport) if(cbox:writePort(sport, "AH",10) == 0) then avgHum(SckHnd, sport) end end;
+		-- AVERGAE TEMPERTURE STATUS = TS
+		['AT'] = function(SckHnd, sport) if(cbox:writePort(sport, "AT",10) == 0) then avgTemp(SckHnd,sport) end end;
+		-- HUMIDITY STATUS
+		['HS'] = function(SckHnd, sport, dht) if(cbox:writePort(sport, "HS",10) == 0) then getHum(SckHnd, sport, dht) end end;
+		-- TEMPERTURE STATUS = TS
+		['TS'] = function(SckHnd, sport, dht) if(cbox:writePort(sport, "TS",10) == 0) then getTemp(SckHnd,sport, dht) end end;
+		-- SET_LEDS = SL
+		['SL'] = function(SckHnd, sport,leds) if(cbox:writePort(sport, "SL",10) == 0) then setLeds(SckHnd,sport,leds) end end;
+		-- SYNC TIME = ST
+		['ST'] = function(SckHnd, sport) if(cbox:writePort(sport, "ST",10) == 0) then syncTime(SckHnd,sport) end end;
+		-- TIME NOW = TN
+		['TN'] = function(SckHnd, sport) if(cbox:writePort(sport, "TN",10) == 0) then timeNow(SckHnd,sport) end end;
+		-- USER CON = OV
+		['OV'] = function(SckHnd, sport, ov) if(cbox:writePort(sport, "OV",10) == 0) then userControl(SckHnd,sport,ov) end end;
+
+	  }
+
+
+function sendRTR(SckHnd)
+local err, res = cbox:readPort(sport, 2, 200, 1)
+
+	if(res) then
+		SckHnd:send("RESPONSE FROM CANNABOX : "..res.."\n")
+	end
+   return
+end
+
+
+
+--############################################# CMD Processer ################################################--
+
+function process_cmd(SckHnd, cmd)
+  if(verbose > 0) then print("process_cmd: "..tostring(SckHnd).." : "..cmd) end
+  local is_valid = false				--## cmd is not yet valid
+  local n = 0
+
+  if cmd and type(cmd) == "string" then
+    for i in string.gmatch(cmd, "%S+") do  		--## Add the cmd and any args to the arg tbl
+      n = n +1
+      arg[n]=i
+    end
+
+    for i,v in pairs(cmds) do			--## Check if cmd is supported
+      if i == arg[1] then				--## if its in the cmds tbl .. its supported
+        is_valid = true				--## cmd is valid, process it
+        if arg[2] then
+          v(SckHnd, sport, arg) 			--## cmd is valid send it and the argument to the dispatch table
+	else
+          v(SckHnd)					--## cmd is valid just send the cmd ...no args were recieved
+	end
+      end
+    end
+  else
+    arg = {}  								--# clear the args table and return
+   return    								--# cmd was not a valid string .. not worth checking so discard it and return
+  end
+
+  if not is_valid then
+    if(verbose > 0 ) then print("process_cmd { ERROR: "..tostring(SckHnd).." : "..cmd.." Failed }") end--## cmd is not supported
+    nixio.nanosleep(0, 1000000)
+    SckHnd:send("502 Unsupported Cmd \n")
+  end
+
+  if(verbose > 0) then
+    for i,v in pairs(arg) do
+      print(string.format("Cmd Received: arg[%s] = %s", i,v))
+      if v:upper() == "QUIT" or v:upper() == "SHUTDOWN" then break end
+    end
+  end
+  arg = {} --# clear the arg table
+ return	   --# success :)
+end
+
+--################################################# Dispatcher ###############################################--
+
+local function dispatcher(sock,port)
+  if(verbose > 0) then print("New Dispatcher Assigned to: "..tostring(SckHnd)) end
+  local Loop, Str, ErrStr = true
+  local Rcv = {}
+
+  while Loop do
+    coroutine.yield(Str)
+   if(sock) then 
+	SckHnd = sock
+	Str, ErrStr = SckHnd:receive()
+   end
+   if(sport) then 
+	SckHnd = sport
+    	ErrStr,Str = cbox:readPort(sport,4,15000,1);
+   end
+    if Str then
+      Loop = Str ~= "QUIT" and Str ~= "EXIT"
+      if Loop then
+        if(verbose > 4) then print(tostring(SckHnd).." Dispatcher Recieved Cmd: "..Str) end
+		logger(tostring(SckHnd).." Dispatcher Recieved Cmd: "..Str)
+	process_cmd(SckHnd, Str)
+      end
+    else
+      if ErrStr ~= "closed" then print("Error: ", ErrStr, "\n") else print(tostring(SckHnd).." "..ErrStr.."\n") end
+      do_exit(SckHnd)
+      remove_con(SckHnd)
+    end
+  end
+  if(verbose > 0) then print(tostring(SckHnd).." Dispatcher Returning: ",Str) end
+ return Str
+end
+
+--############################################ Initalize Server ##############################################--
+
+function server_init(...)
+  local host = arg[1] or config.SCK_HOST;
+  local port = arg[2] or config.SCK_PORT;
+  local res, sport = cbox:openPort(portName,portSettings,1);
+  SckHnd = assert(socket.bind(host, port)) --## create a TCP socket and bind it to the localhost ##--
+  init(SckHnd);
+  if SckHnd then
+     if (verbose > 0) then print("CanaBox"..VERSION) end
+    logger("Starting Server ...","svr")
+    logger("CanaBox "..VERSION,"svr")
+    local SckList = {} -- Array of sockets, beginning with accepting socket
+    local CoList = {}  -- Table of coroutines keyed by socket
+    local Loop = true
+    SckHnd:settimeout(250)
+    SckList[1] = SckHnd
+
+    while Loop do
+      local ReadTbl, WriteTbl, ErrStr = socket.select(SckList)
+        for K, SckHnd in ipairs(ReadTbl) do
+	  if SckHnd == SckList[1] then -- Server socket
+	    local ClientHnd, ErrStr = SckHnd:accept()
+	    ClientHnd:send("220 CanaBox Version 1.00 Diagnostics Terminal\n")
+	    local id = ClientHnd:getpeername()
+	    if(verbose > 0) then print(string.format("New Client [%s] connected",id)) end
+            logger("( "..id.." ) Connected: "..id,"clt")
+            if ClientHnd then
+              local NewPos = #SckList + 1
+              SckList[NewPos] = ClientHnd
+	      if(verbose > 0) then print("Client added to SckList tbl:",SckList[NewPos]) end
+              logger("( "..id.." ) Assigned Handle ("..tostring(ClientHnd).." )","svr")
+              CoList[ClientHnd] = coroutine.wrap(dispatcher)
+              CoList[ClientHnd](ClientHnd)
+              for i,v in pairs(SckList) do print(i,v) end
+            elseif ErrStr ~= "timeout" then
+              print(ErrStr, "\n")
+	      do_exit(ClientHnd)
+	      remove_con(ClientHnd)
+	      Loop = false
+	    end
+          else -- Client connection
+            local Cmd = CoList[SckHnd]()
+	    if "QUIT" == Cmd then
+	      CoList[SckHnd] = nil
+              SckHnd:close()
+              local L, Pos = #SckList
+	      while L > 1 do
+	        if SckHnd == SckList[L] then
+		  remove_con(SckList[L])
+                  table.remove(SckList, L)
+                  L = 1 -- Terminate search
+                else
+                  L = L - 1
+                end
+                for i,v in pairs(SckList) do print("Sockect:",i,v) end
+              end
+	    elseif "SHUTDOWN" == Cmd then
+              print("Shutting down server\n")
+              Loop = false
+	    end
+	  end
+        end
+      end
+      for J, SckHnd in ipairs(SckList) do
+        SckHnd:close()
+      end
+    else
+      print("Error creating server socket\n")
+    end
+    local err, data = cbox:readPort(sport,4,15000,1);
+    if(data) then
+	--newMsg(data);
+	dispatcher(nil,sport)
+    end
+ return
+end
+
+--<======================================================|===================================================>--
+
+--## Entry into program ##--
+--init();
+server_init(...) -- collect any arguments
+

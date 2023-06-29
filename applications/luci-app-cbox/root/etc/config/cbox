@@ -1,0 +1,26 @@
+
+config cbox 'general'
+	option CB_MODEL '1'
+	option CB_MODE '2'
+
+config cbox 'water'
+
+config cbox 'log'
+	option LOG_LEVEL '1'
+	option CONSOLE_SET '1'
+
+config cbox 'temp'
+	option TEMP_HIGH '28.00'
+	option TEMP_LOW '20.00'
+	option HUM_HIGH '65.00'
+	option HUM_LOW '55.00'
+
+config cbox 'socket'
+	option SCK_HOST '10.0.88.1'
+	option SCK_PORT '8383'
+	option VERBOSE '1'
+
+config cbox 'time'
+	option LIGHT_OFF '9'
+	option LIGHT_ON '16'
+

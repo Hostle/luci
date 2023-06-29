@@ -1,0 +1,33 @@
+
+config cboxSvr 'general'
+	option cmodel 'CannaBox 1 Stage'
+	option cmode 'SEEDLING'
+	option awater '1'
+	option console_set '1'
+	option log_level '1'
+	option CB_MODEL 'CannaBox 1 Stage'
+	option CB_MODE 'SEEDLING'
+
+config cboxSvr 'water'
+	option AUTO_WATER '1'
+
+config cboxSvr 'log'
+	option LOG_LEVEL '1'
+	option CONSOLE_SET '1'
+
+config cboxSvr 'temp'
+	option HUM_HIGH '75.00'
+	option HUM_LOW '55.00'
+	option TEMP_HIGH '28.00'
+	option TEMP_LOW '20.00'
+
+config cboxSvr 'socket'
+	option SCK_HOST '10.0.88.1'
+	option SCK_PORT '8383'
+	option VERBOSE '1'
+	option LOG_LEV '3'
+
+config cboxSvr 'time'
+	option LIGHT_OFF '9'
+	option LIGHT_ON '16'
+

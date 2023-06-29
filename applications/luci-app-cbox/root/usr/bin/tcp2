@@ -1,0 +1,55 @@
+#! /usr/bin/lua
+
+local host, port = "localhost", 8383
+local nix = require ("nixio")
+local socket = require("socket")
+local tcp = assert(socket.tcp())
+local verbose = 1;
+
+local function pprint(msg)
+  if(verbose > 0 ) then
+	 local stringToFormat = "[%X]"
+	 local timestamp = os.time()
+	 local ttime = os.date(stringToFormat, timestamp)
+	 print(string.format("%s %s", ttime, msg));
+     return;
+  end
+  return;
+end
+
+
+function requestData(...)
+  local res = arg[1];
+  if(#arg > 1) then
+	for k,v in pairs(arg) do
+		if(v ~= res) then 
+			res = res .." " ..v
+		end
+	end
+  end
+
+  tcp:connect(host, port);
+  local s, status, partial = tcp:receive()
+  pprint(s or partial)
+  local msg = 'OPTS UTF8 ON\n'
+  tcp:send(msg);
+  nixio.nanosleep(1)
+  s, status, partial = tcp:receive()
+  pprint(s or partial)
+  local msg = 'PASS\n'
+  tcp:send(msg);
+  nixio.nanosleep(1)
+  s, status, partial = tcp:receive()
+  pprint(s or partial)
+
+  if(s) then
+      local msg = res
+      tcp:send(msg:upper() .. '\n')
+      s, status, partial = tcp:receive()
+      pprint(s or partial)
+	  tcp:send("QUIT\n");
+      --tcp:close()
+  end
+end
+
+requestData(...)

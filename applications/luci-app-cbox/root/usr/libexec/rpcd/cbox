@@ -1,0 +1,238 @@
+#!/usr/bin/env lua
+
+local json = require "luci.jsonc"
+local fs   = require "nixio.fs"
+local socket = require "socket"
+local http = require "socket.http"
+local ltn12 = require "ltn12"
+
+local function readfile(path)
+	local s = fs.readfile(path)
+	return s and (s:gsub("^%s+", ""):gsub("%s+$", ""))
+end
+
+local methods = {
+
+	readSensorData = {
+		args = { action = "readTemp", pos = "0" },
+		call = function(args)
+				local socket = require "socket"
+				local http = require "socket.http"
+				local ltn12 = require "ltn12"
+				local path = string.format("http://192.168.1.114/%s/dht11/%d", args.action,tonumber(args.pos))
+				local response_body = { }
+				local res, code, response_headers, status = http.request
+				{
+					url = path,
+					method = "GET",
+					headers =
+					{
+						["Content-Type"] = "text/plain", --"application/json",
+						["Content-Length"] = path:len()
+					},
+					source = ltn12.source.string(path),
+					sink = ltn12.sink.table(response_body)
+				}
+				if code ~= 200 and code ~= 201 then
+					return { error = code }
+				else
+					return { result = table.concat(response_body) }
+				end
+		end
+	},
+
+	readSensors = {
+		args = { target = "target" },
+		call = function(args)
+				local socket = require "socket"
+				local http = require "socket.http"
+				local ltn12 = require "ltn12"
+				local path = args.target or "http://192.168.1.192/TMP/"
+				local response_body = { }
+				local res, code, response_headers, status = http.request
+				{
+					url = path,
+					method = "POST",
+					headers =
+					{
+						["Content-Type"] = "application/json",
+						["Content-Length"] = path:len()
+					},
+					source = ltn12.source.string(path),
+					sink = ltn12.sink.table(response_body)
+				}
+				if code ~= 200 and code ~= 201 then
+					return { error = code }
+				else
+					return { result = table.concat(response_body) }
+				end
+		end
+	},
+
+
+	toggleSmartPlug = {
+		args = { device_id = "8006BA35E8278C168136D970EE56DE201E8B7EE0", child_id = "8006BA35E8278C168136D970EE56DE201E8B7EE001", state = 0, token = "00000000-00000000000000000000000" },
+		call = function(args)
+			if args.token then
+				local socket = require "socket"
+				local http = require "socket.http"
+				local ltn12 = require "ltn12"
+				local payload = string.format('{"method": "passthrough", "params": { "deviceId": "%s", "requestData": { "context": { "child_ids": [ "%s" ]}, "system": { "set_relay_state": { "state": %d }}}, "token": "%s" }}', args.device_id, args.child_id, args.state, args.token)
+				local path = "https://use1-wap.tplinkcloud.com"
+				
+				local response_body = { }
+				local res, code, response_headers, status = http.request
+				{
+					url = path,
+					method = "POST",
+					headers =
+					{
+						["Content-Type"] = "application/json",
+						["Content-Length"] = payload:len()
+					},
+					source = ltn12.source.string(payload),
+					sink = ltn12.sink.table(response_body)
+				}
+				if code ~= 200 and code ~= 201 then
+					return { error = code }
+				else
+					return { result = print(table.concat(response_body)) }
+				end
+			else
+				return { error = "Invalid Username or Password" }
+			end
+		end
+	},
+
+	getSmartDevices = {
+		args = { token = "00000000-00000000000000000000000" },
+		call = function(args)
+			if args.token then
+				local socket = require "socket"
+				local http = require "socket.http"
+				local ltn12 = require "ltn12"
+				local payload = string.format('{"method": "getDeviceList",	"params": {	"token": "%s"	}}', args.token)
+				local path = "https://use1-wap.tplinkcloud.com"
+				local response_body = { }
+				local res, code, response_headers, status = http.request
+				{
+					url = path,
+					method = "POST",
+					headers =
+					{
+						["Content-Type"] = "application/json",
+						["Content-Length"] = payload:len()
+					},
+					source = ltn12.source.string(payload),
+					sink = ltn12.sink.table(response_body)
+				}
+				if code ~= 200 and code ~= 201 then
+					return { error = code }
+				else
+					return { result = print(table.concat(response_body)) }
+				end
+			else
+				return { error = "Invalid Username or Password" }
+			end
+		end
+	},
+
+	authSess = {
+		args = { username = "username", password = "password" },
+		call = function(args)
+		if args.username and args.password then
+			local uuid = require "uuid"
+			local socket = require "socket"
+			local http = require "socket.http"
+			local ltn12 = require "ltn12"
+
+			local uu_id = uuid()
+			local payload = string.format('{ "method": "login", "params": { "appType": "Kasa_Android", "cloudUserName": "%s", "cloudPassword": "%s", "terminalUUID": "%s" }}', args.username, args.password, uu_id)
+			local path = "https://use1-wap.tplinkcloud.com" 
+			local response_body = { }
+			local res, code, response_headers, status = http.request
+			{
+				url = path,
+				method = "POST",
+				headers =
+				{
+					["Content-Type"] = "application/json",
+					["Content-Length"] = payload:len()
+				},
+				source = ltn12.source.string(payload),
+				sink = ltn12.sink.table(response_body)
+			}
+			
+			if code ~= 200 and code ~= 201 then
+				return code
+			else
+				return { result = print(table.concat(response_body)) }
+			end
+		else
+			return { error = "Invalid Username or Password" }
+			end
+	end
+	}
+	
+}
+
+local function parseInput()
+	local parse = json.new()
+	local done, err
+
+	while true do
+		local chunk = io.read(4096)
+		if not chunk then
+			break
+		elseif not done and not err then
+			done, err = parse:parse(chunk)
+		end
+	end
+
+	if not done then
+		print(json.stringify({ error = err or "Incomplete input" }))
+		os.exit(1)
+	end
+
+	return parse:get()
+end
+
+local function validateArgs(func, uargs)
+	local method = methods[func]
+	if not method then
+		print(json.stringify({ error = "Method not found" }))
+		os.exit(1)
+	end
+
+	if type(uargs) ~= "table" then
+		print(json.stringify({ error = "Invalid arguments" }))
+		os.exit(1)
+	end
+
+	uargs.ubus_rpc_session = nil
+
+	local k, v
+	local margs = method.args or {}
+	for k, v in pairs(uargs) do
+		if margs[k] == nil or
+		   (v ~= nil and type(v) ~= type(margs[k]))
+		then
+			print(json.stringify({ error = "Invalid arguments" }))
+			os.exit(1)
+		end
+	end
+
+	return method
+end
+
+if arg[1] == "list" then
+	local _, method, rv = nil, nil, {}
+	for _, method in pairs(methods) do rv[_] = method.args or {} end
+	print((json.stringify(rv):gsub(":%[%]", ":{}")))
+elseif arg[1] == "call" then
+	local args = parseInput()
+	local method = validateArgs(arg[2], args)
+	local result, code = method.call(args)
+	print((json.stringify(result):gsub("^%[%]$", "{}")))
+	os.exit(code or 0)
+end

@@ -1,0 +1,466 @@
+<% 
+require "nixio.fs"
+local cbox = require ("cbox.libcbox")
+local cbox_running = cbox.log_running()
+
+if not cbox_running then
+  --luci.sys.exec("/etc/init.d/cboxServer stop &")
+end
+	if luci.http.formvalue("status") == "1" then
+		local rv = {
+			localtime  = os.date(),
+			ref = ref,
+			temps = cbox.temps(),
+			fans = cbox.fans(),
+			hums = cbox.hums(),
+		}
+
+
+		luci.http.prepare_content("application/json")
+		luci.http.write_json(rv)
+
+		return
+	end
+
+%>
+<%+header%>
+<script type="text/javascript" src="<%=resource%>/cbi.js?v=unknown"></script>
+<script type="text/javascript" src="<%=resource%>/jquery.js?v=unknown"></script>
+ <script type="text/javascript" src="<%=resource%>/jquery.js?v=unknown"></script>
+	<link type="text/css" href="<%=resource%>/jquery.ui.custom.css?v=unknown" rel="stylesheet" />
+    <script type="text/javascript" src="<%=resource%>/jquery.ui.core.min.js?v=unknown"></script>    
+    <script type="text/javascript" src="<%=resource%>/jquery.ui.widget.min.js?v=unknown"></script>    
+    <script type="text/javascript" src="<%=resource%>/jquery.ui.tabs.min.js?v=unknown"></script>    
+            
+<script type="text/javascript">
+
+/* Copyright (C) 2007 Richard Atterer, richard©atterer.net
+   This program is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License, version 2. See the file
+   COPYING for details. */
+
+var imageNr = 0; // Serial number of current image
+var finished = new Array(); // References to img objects which have finished downloading+++
+var paused = false;
+
+function createImageLayer() {
+  var img = new Image();
+  img.id = "webcam";
+  img.style.position = "absolute";
+  img.style.zIndex = -1;
+  img.style.height = "480px";
+  img.style.width = "864px";
+  img.onload = imageOnload;
+  img.onclick = imageOnclick;
+  img.src = "http://192.168.1.1:8080/?action=snapshot&n=" + (++imageNr);
+  var webcam = document.getElementById("webcam");
+  webcam.insertBefore(img, webcam.firstChild);
+}
+
+// Two layers are always present (except at the very beginning), to avoid flicker
+function imageOnload() {
+  this.style.zIndex = imageNr; // Image finished, bring to front!
+  while (1 < finished.length) {
+    var del = finished.shift(); // Delete old image(s) from document
+    del.parentNode.removeChild(del);
+  }
+  finished.push(this);
+  if (!paused) createImageLayer();
+}
+
+function imageOnclick() { // Clicking on the image will pause the stream
+  paused = !paused;
+  if (!paused) createImageLayer();
+}
+
+</script>
+
+<script type="text/javascript">//<![CDATA[
+
+	XHR.poll(2, '<%=REQUEST_URI%>', { status: 1 },
+		function(x, info)
+		{
+			var ls = document.getElementById('temps');
+			var cd = document.getElementById('fans');
+			var hs = document.getElementById('hums');
+
+			if (ls)
+			{
+				/* clear all rows */
+				while( ls.rows.length > 1 )
+					ls.rows[0].parentNode.deleteRow(1);
+
+				
+				for( var i = 0; i < info.temps.length; i++ )
+				{
+		
+						var tr = ls.rows[0].parentNode.insertRow(-1);
+						tr.className = 'cbi-section-table-row cbi-rowstyle';					
+							var icon1;
+
+							if (info.temps[i].ln[0] <= info.temps[i].ln[7])
+								icon1 = "<%=resource%>/icons/brown-pot-leaf.png";
+							else if (info.temps[i].ln[0] >= info.temps[i].ln[7])
+								icon1 = "<%=resource%>/icons/greenLeaf.png";
+							else if (info.temps[i].ln[0] <= info.temps[i].ln[6])
+								icon1 = "<%=resource%>/icons/greenLeaf.png";
+							else if (info.temps[i].ln[0] > info.temps[i].ln[6])
+								icon1 = "<%=resource%>/icons/brown-pot-leaf.png";
+							else
+								icon1 = "<%=resource%>/icons/brown-pot-leaf.png";
+							
+							tr.insertCell(-1).innerHTML = String.format(
+								'<img src="%s" style="vertical-align:middle;margin:0px 70px"/><br />' +
+								'<strong><%:Average Temperature%>:</strong> %2.2f &deg C<br />' +
+								'<strong><%:Temperature Top %>:</strong> %2.2f &deg C<br />' +
+								'<strong><%:Temperature Mid %>:</strong> %2.2f &deg C<br />' +
+								'<strong><%:Temperature Bottom %>:</strong> %2.2f &deg C<br />',
+									icon1,
+									info.temps[i].ln[0] || '00.00',
+									info.temps[i].ln[1] || '00.00',
+									info.temps[i].ln[2] || '00.00',
+									info.temps[i].ln[3] || '00.00',
+							);
+
+							var icon2 = "<%=resource%>/icons/fan.gif";
+							var fanOn5 = "<%=resource%>/icons/fanOnS.gif"; // Fan On { system }
+							var fanOnU = "<%=resource%>/icons/fanOnU.gif"; // Fan On { user }
+							var fanOff = "<%=resource%>/icons/fanOff.gif"; // Fan Off { both }
+							var fanOn  = "<%=resource%>/icons/fanOn.gif";  // Fan Off { Big Icon }
+							var exFanState = info.fans[i].cd[0] || '0';	    // cd[0] = exhaust fan
+							var inFanState = info.fans[i].cd[1] || '0';    // cd[1] = intake fan
+							var hmFanState = info.fans[i].cd[2] || '0';    // cd[2] = humidifier
+							var blFanState = info.fans[i].cd[3] || '0';    // cd[3] = ballast fan
+							var bgFanIco = fanOff;
+							var exFanIco = fanOff;
+							var inFanIco = fanOff;
+							var hmFanIco = fanOff;
+
+							if(exFanState == "1" ){
+								exFanIco = fanOn5;
+							}
+							if(inFanState == "1"){
+								inFanIco = fanOn5;
+							}
+							if(hmFanState == "1") {
+								hmFanIco = fanOn5;
+							}
+							if(exFanState == "1" || inFanState == "1" || hmFanState == "1") {
+								bgFanIco = fanOn;
+							}
+
+							tr.insertCell(-1).innerHTML = String.format(
+								'<img src="%s" style="width:80px; height:80px;vertical-align:middle;margin:45px 70px"/><br />' +
+								'<strong><%:Exhaust%>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</strong><img src="%s" style="width:35px;height:35px;vertical-align:middle;text-align:right;margin:3px"/><br />' +
+								'<strong><%:Intake%>&nbsp;&nbsp;&nbsp;&nbsp&nbsp;&nbsp;&nbsp;&nbsp;</strong><img src="%s" style="width:35px;height:35px;vertical-align:middle;text-align:right;margin:3px"/><br />' +
+								'<strong><%:Humidity%>&nbsp;&nbsp;&nbsp;</strong><img src="%s" style="width:35px;height:35px;vertical-align:middle;text-align:right;margin:3px"/><br />',
+									bgFanIco,
+									exFanIco,
+									inFanIco,
+									hmFanIco,
+									
+							);
+							var icon3;
+
+						if (info.hums[i].hs[0] <= info.hums[i].hs[7])
+							icon3 = "<%=resource%>/icons/brown-pot-leaf.png";
+						else if (info.hums[i].hs[0] <= info.hums[i].hs[7])
+							icon3 = "<%=resource%>/icons/brown-pot-leaf.png";
+						else if (info.hums[i].hs[0] <= info.hums[i].hs[6])
+							icon3 = "<%=resource%>/icons/greenLeaf.png";
+						else if (info.hums[i].hs[0] > info.hums[i].hs[6])
+							icon3 = "<%=resource%>/icons/brown-pot-leaf.png";
+						else
+							icon3 = "<%=resource%>/icons/brown-pot-leaf.png";
+							
+						tr.insertCell(-1).innerHTML = String.format(
+								'<img src="%s" style="vertical-align:middle;margin:0px 70px"/><br />' +
+								'<strong><%:Average Humidity%>:</strong> %2.2f %%<br />' +
+								'<strong><%:Humidity Top%>:</strong> %2.2f %%<br />' +
+								'<strong><%:Humidity Mid%>:</strong> %2.2f %%<br />' +
+								//'<input type="button" class="btn cbi-button cbi-button-apply" value="<%:Ballast%>" onclick="return fan4(this)" /><br/>' +
+
+								'<strong><%:Humidity Bottom%>:</strong> %2.2f %%<br />',
+									icon3,
+									info.hums[i].hs[0] || '00.00',
+									info.hums[i].hs[1] || '00.00',
+									info.hums[i].hs[2] || '00.00',
+									info.hums[i].hs[3] || '00.00',
+						);
+
+											
+				}
+				if( ls.rows.length < 1 )
+				{
+					var tr = ls.rows[0].parentNode.insertRow(-1);
+						tr.className = 'cbi-section-table-row';
+
+					var td = tr.insertCell(-1);
+						td.colSpan = 3;
+						td.innerHTML = '<em><br /><%:No Connection To Server.%></em>';
+				}
+			}
+		}
+	
+	);
+
+	function start_client(btn)
+	{
+		btn.disabled = true;
+		btn.value    = '<%:Starting Server...%>';
+		XHR.get('<%=luci.dispatcher.build_url("admin/cbox/start")%>',
+			{ set: Math.floor((new Date()).getTime() / 1000) },
+			function()
+			{
+				btn.disabled = false;
+				btn.value    = '<%:Start%>';
+			}
+		);
+
+		return false;
+	}
+
+	function stop_client(btn)
+	{
+		btn.disabled = true;
+		btn.value    = '<%:Closing Log Server...%>';
+		XHR.get('<%=luci.dispatcher.build_url("admin/cbox/stop")%>',
+			{ set: Math.floor((new Date()).getTime() / 1000) },
+			function()
+			{
+				btn.disabled = false;
+				btn.value    = '<%:Stop%>';
+			}
+		);
+
+		return false;
+	}
+
+	function clear_stats(btn)
+	{
+		btn.disabled = true;
+		btn.value    = '<%:flushing buffer...%>';
+
+		XHR.get('<%=luci.dispatcher.build_url("admin/cbox/clear")%>',
+			{ set: Math.floor((new Date()).getTime() / 1000) },
+			function()
+			{
+				btn.disabled = false;
+				btn.value    = '<%:Clear%>';
+			}
+		);
+
+		return false;
+	}
+
+	function fan1(btn)
+	{
+		if(btn.value == '<%:Exhaust%>'){
+		btn.style = 'color:green';
+		btn.value    = '<%:Activating ...%>';
+
+		XHR.get('<%=luci.dispatcher.build_url("admin/cbox/fan1Act")%>',
+			{ set: Math.floor((new Date()).getTime() / 1000) },
+			function()
+			{
+				btn.disabled = false;
+				btn.state = 'active';
+				btn.value  = '<%:Exhaust%>';
+				return false;
+			}
+		);
+		}
+
+		if(btn.state == 'active'){
+		btn.style = 'color:red';
+		btn.value = '<%:Terminating ...%>';
+		XHR.get('<%=luci.dispatcher.build_url("admin/cbox/fan1Term")%>',
+			{ set: Math.floor((new Date()).getTime() / 1000) },
+			function()
+			{
+				btn.style = '--main-bright-color';
+				btn.disabled = false;
+				btn.state = 'idle';
+				btn.value  = '<%:Exhaust%>';
+				return false;
+			}
+
+		);
+		}
+		return false
+	}
+
+	function fan2(btn)
+	{
+		if(btn.value == '<%:Intake%>'){
+		btn.style = 'color:green';
+		btn.value    = '<%:Activating ...%>';
+
+		XHR.get('<%=luci.dispatcher.build_url("admin/cbox/fan2Act")%>',
+			{ set: Math.floor((new Date()).getTime() / 1000) },
+			function()
+			{
+				btn.disabled = false;
+				btn.state = 'active';
+				btn.value  = '<%:Intake%>';
+				return false;
+			}
+		);
+		}
+
+		if(btn.state == 'active'){
+		btn.style = 'color:red';
+		btn.value = '<%:Terminating ...%>';
+		XHR.get('<%=luci.dispatcher.build_url("admin/cbox/fan2Term")%>',
+			{ set: Math.floor((new Date()).getTime() / 1000) },
+			function()
+			{
+				btn.style = '--main-bright-color';
+				btn.disabled = false;
+				btn.state = 'idle';
+				btn.value  = '<%:Intake%>';
+				return false;
+			}
+
+		);
+		}
+		return false
+	}
+
+	function fan3(btn)
+	{
+		if(btn.value == '<%:Humidifier%>'){
+		btn.style = 'color:green';
+		btn.value    = '<%:Activating ...%>';
+
+		XHR.get('<%=luci.dispatcher.build_url("admin/cbox/fan3Act")%>',
+			{ set: Math.floor((new Date()).getTime() / 1000) },
+			function()
+			{
+				btn.disabled = false;
+				btn.state = 'active';
+				btn.value  = '<%:Humidifier%>';
+				return false;
+			}
+		);
+		}
+
+		if(btn.state == 'active'){
+		btn.style = 'color:red';
+		btn.value = '<%:Terminating ...%>';
+		XHR.get('<%=luci.dispatcher.build_url("admin/cbox/fan3Term")%>',
+			{ set: Math.floor((new Date()).getTime() / 1000) },
+			function()
+			{
+				btn.style = '--main-bright-color';
+				btn.disabled = false;
+				btn.state = 'idle';
+				btn.value  = '<%:Humidifier%>';
+				return false;
+			}
+
+		);
+		}
+		return false
+	}
+
+
+	function fan4(btn)
+	{
+		if(btn.value == '<%:Ballast%>'){
+		btn.style = 'color:green';
+		btn.value    = '<%:Activating ...%>';
+
+		XHR.get('<%=luci.dispatcher.build_url("admin/cbox/fan4Act")%>',
+			{ set: Math.floor((new Date()).getTime() / 1000) },
+			function()
+			{
+				btn.disabled = false;
+				btn.state = 'active';
+				btn.value  = '<%:Ballast%>';
+				return false;
+			}
+		);
+		}
+
+		if(btn.state == 'active'){
+		btn.style = 'color:red';
+		btn.value = '<%:Terminating ...%>';
+		XHR.get('<%=luci.dispatcher.build_url("admin/cbox/fan4Term")%>',
+			{ set: Math.floor((new Date()).getTime() / 1000) },
+			function()
+			{
+				btn.style = '--main-bright-color';
+				btn.disabled = false;
+				btn.state = 'idle';
+				btn.value  = '<%:Ballast%>';
+				return false;
+			}
+
+		);
+		}
+		return false
+	}
+
+//]]></script>
+<script type="text/javascript">
+var myElements = document.getElementsByClassName("btn cbi-button cbi-button-apply");
+for(var i = 0; i < myElements.length; i++){
+	console.log(myElements[i]);
+}
+</script>
+
+<%+header%>
+<body onload="createImageLayer();">
+
+</body>
+<fieldset class="cbi-section">
+	<table class="cbi-section-table" id="temps">
+		<tr class="cbi-section-table-titles">
+			<th id="temps" class="cbi-section-table-cell" style="width:200px; text-align:center; padding:1px"><%:Temperature Status%></th>
+			<th id="log"class="cbi-section-table-cell" style="width:200px; text-align:center; padding:1px"><%:Fan Status%></th>
+			<th id="hums"class="cbi-section-table-cell" style="width:200px; text-align:center; padding:1px"><%:Humidity Status%></th>
+		</tr>
+		<tr class="cbi-section-table-row">
+			<td id="temps" colspan="1" style="width:16px; border:1px text-align:center;"><em><br /><%:Collecting data...%></em></td>
+			<td id="log"  colspan="1" style="width:16px; text-align:center;"><em><br /><%:Collecting data...%></em></td>
+			<td id="hums"  colspan="1" style="width:16px; text-align:center;"><em><br /><%:Collecting data...%></em></td>
+		</tr>
+	</table>
+	<div id="webcam" <img id="webcam" src="./?action=snapshot" style="margin-left:auto; margin-right:auto; width:864px; height:480px;"></div>
+	
+	<table class="cbi-section-table" id="cntrl2" table border="1">
+		<tr id="cntrl2">
+		  	<th class="cbi-section-table-cell" colspan="4" style="text-align:left; padding-left:1px"><%:CanaBox Server Controls%></th>
+		  	<th class="cbi-section-table-cell" colspan="4" style="text-align:right; padding-left:190px"><%:CanaBox Fan Controls%></th>
+		<tr id="cntrl3">
+		  	<td id="cntrl2" colspan="4" style="text-align:left;">
+				<input type="button" class="btn cbi-button cbi-button-apply" value="<%:Start%>" onclick="return start_client(this)" />
+				<input type="button" class="btn cbi-button cbi-button-apply" value="<%:Stop%>" onclick="return stop_client(this)" />
+				<input type="button" class="btn cbi-button cbi-button-remove" value="<%:Clear%>" onclick="return clear_stats(this)" />
+				<input type="button" class="btn cbi-button cbi-button-apply" value="<%:Cam Controls%>"onclick="window.open('http://192.168.1.1:8080/control.htm','Camera Controls','width=400,height=340')"/>
+		  	<td id="cntrl3" colspan="5" style="text-align:right;">
+				<input id="exBtn" type="button" class="btn cbi-button cbi-button-apply" value="<%:Exhaust%>" onclick="return fan1(this)" />
+				<input type="button" class="btn cbi-button cbi-button-apply" value="<%:Intake%>" onclick="return fan2(this)" />
+				<input type="button" class="btn cbi-button cbi-button-apply" value="<%:Humidifier%>" onclick="return fan3(this)" />
+				<input type="button" class="btn cbi-button cbi-button-apply" value="<%:Ballast%>" onclick="return fan4(this)" />
+		    </td></td>
+		 </tr>
+	</table>
+</fieldset>
+
+<%-
+	require "luci.util"
+	require "nixio.fs"
+
+	local plugins = nixio.fs.dir(luci.util.libpath() .. "/view/admin_cbox/cbox")
+	if plugins then
+		local inc
+		for inc in plugins do
+			if inc:match("%.htm$") then
+				include("admin_cbox/cbox/" .. inc:gsub("%.htm$", ""))
+			end
+		end
+	end
+-%>
+<%+footer%>

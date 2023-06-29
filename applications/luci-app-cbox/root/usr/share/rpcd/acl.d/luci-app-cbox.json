@@ -1,0 +1,14 @@
+{
+	"luci-app-cbox": {
+		"description": "Grant UCI access for luci-app-cbox",
+		"read": {
+			"uci": [ "cbox", "room" ]
+		},
+		"write": {
+			"ubus": {
+				"cbox": [ "connectToApi" ]
+			},
+			"uci": [ "cbox", "room" ]
+		}
+	}
+}

@@ -1,0 +1,37 @@
+
+config cbox 'temp'
+	option sen5Temp '00.00'
+	option sen4Temp '21.50'
+	option sen2Temp '24.80'
+	option sen1Temp '23.40'
+	option sen3Temp '23.30'
+	option avgTemp '23.833333333333'
+
+config cbox 'hum'
+	option sen4Hum '00.00'
+	option sen5Hum '00.00'
+	option sen1Hum '57.00'
+	option sen2Hum '2.00'
+	option sen3Hum '68.00'
+	option avgHum '62.5'
+
+config cbox 'fan'
+	option fan3 '1'
+	option fan4 '1'
+	option fan1 '1'
+	option fan2 '1'
+
+config cbox 'soil'
+	option ssen1 '00.00'
+	option ssen2 '00.00'
+
+config cbox 'water'
+	option tank1 '00.00'
+	option tank2 '00.00'
+	option tank3 '00.00'
+
+config cbox 'time'
+	option programStart '0000-00-00'
+	option programEnd '0000-00-00'
+	option timeNow '08:12'
+

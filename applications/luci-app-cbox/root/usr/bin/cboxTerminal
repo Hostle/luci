@@ -1,0 +1,47 @@
+#! /usr/bin/lua
+
+require ("uci")
+local uci = uci.cursor();
+local nix = require ("nixio")
+local socket = require("socket")
+local tcp = assert(socket.tcp())
+local conf = "cboxSvr"
+local secSck = "socket"
+
+local host = "localhost";
+local port =  "8383";
+loop = 1;
+
+tcp:connect(host, port);
+local s, status, partial = tcp:receive()
+	print(s or partial)
+	local msg = 'OPTS UTF8 ON\n'
+	tcp:send(msg);
+	nixio.nanosleep(0, 1000000)
+	s, status, partial = tcp:receive()
+	print(s or partial)
+	local msg = 'PASS\n'
+	tcp:send(msg);
+	nixio.nanosleep(0, 1000000)
+	s, status, partial = tcp:receive()
+	print(s or partial)
+
+function pprint(msg)
+	local stringToFormat = "[%X]"
+	local timestamp = os.time()
+	local ttime = os.date(stringToFormat, timestamp)
+	print(string.format("%s %s", ttime, msg));
+return
+end
+
+
+if(s) then
+while loop do
+    print("ENTER CMD >>>")
+    local msg = io.read()
+    tcp:send(msg:upper() .. '\n');
+	s, status, partial = tcp:receive()
+	pprint(s or partial)
+end
+end
+tcp:close()

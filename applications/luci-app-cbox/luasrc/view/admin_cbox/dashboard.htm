@@ -1,0 +1,316 @@
+<%+header%>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet">
+<script type="text/javascript" src="<%=resource%>/webcam/cbi.js?v=unknown"></script>
+<script type="text/javascript" src="<%=resource%>/webcam/jquery.js?v=unknown"></script>
+<script type="text/javascript" src="<%=resource%>/webcam/jquery.js?v=unknown"></script>
+<link type="text/css" href="<%=resource%>/webcam/jquery.ui.custom.css?v=unknown" rel="stylesheet" />
+<script type="text/javascript" src="<%=resource%>/webcam/jquery.ui.core.min.js?v=unknown"></script>    
+<script type="text/javascript" src="<%=resource%>/webcam/jquery.ui.widget.min.js?v=unknown"></script>    
+<script type="text/javascript" src="<%=resource%>/webcam/jquery.ui.tabs.min.js?v=unknown"></script>
+<style>
+        *
+        {
+            box-sizing: border-box;
+	        text-decoration: none;
+	        list-style: none;
+        }
+
+        .content_wrapper_div_col {
+            display: flex;
+            flex-direction: column;
+            width: 200px;
+            justify-content: center;
+            align-items: center;
+        }
+
+	#cam_wrapper_div_col
+        {
+            display: flex;
+            flex-direction: col;
+            width: 200px;
+            align-items: center;
+            justify-content: center;
+        }
+
+
+        .wrapper_div_row
+        {
+            display: flex;
+            flex-direction: row;
+            width: 200px;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .material-icons-outlined 
+        {
+            display: flexbox;
+            align-items: center;
+            justify-content: center;
+            line-height: 20px;
+            font-size: 35px;
+            /*color:#776612;*/
+            padding-top: 10px;
+        }
+    </style>             
+<script type="text/javascript">
+
+/* Copyright (C) 2007 Richard Atterer, richard©atterer.net
+   This program is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License, version 2. See the file
+   COPYING for details. */
+
+var imageNr = 0; // Serial number of current image
+var finished = new Array(); // References to img objects which have finished downloading+++
+var paused = false;
+
+function createImageLayer() {
+  var img = new Image();
+  img.id = "webcam";
+  img.style.position = "absolute";
+  img.style.zIndex = -1;
+  img.style.height = "480px";
+  img.style.width = "864px";
+  img.onload = imageOnload;
+  img.onclick = imageOnclick;
+  img.src = "http://192.168.1.1:8080/?action=snapshot&n=" + (++imageNr);
+  var webcam = document.getElementById("webcam");
+  webcam.insertBefore(img, webcam.firstChild);
+}
+
+// Two layers are always present (except at the very beginning), to avoid flicker
+function imageOnload() {
+  this.style.zIndex = imageNr; // Image finished, bring to front!
+  while (1 < finished.length) {
+    var del = finished.shift(); // Delete old image(s) from document
+    del.parentNode.removeChild(del);
+  }
+  finished.push(this);
+  if (!paused) createImageLayer();
+}
+
+function imageOnclick() { // Clicking on the image will pause the stream
+  paused = !paused;
+  if (!paused) createImageLayer();
+}
+
+</script>
+
+<%+header%>
+<body onload="createImageLayer();">
+
+
+
+<fieldset class="cbi-section">
+	<table class="cbi-section-table" id="temps">
+		<tr class="cbi-section-table-titles">
+			<th id="temps" class="cbi-section-table-cell" style="width:200px; text-align:center; padding:1px"><%:Temperature Status%></th>
+			<th id="log"class="cbi-section-table-cell" style="width:200px; text-align:center; padding:1px"><%:Fan Status%></th>
+			<th id="hums"class="cbi-section-table-cell" style="width:200px; text-align:center; padding:1px"><%:Humidity Status%></th>
+		</tr>
+		<tr class="cbi-section-table-row">
+			<td id="temps" colspan="1" style="width:16px; border:1px text-align:center;"><em><br /><%:Collecting data...%></em></td>
+			<td id="log"  colspan="1" style="width:16px; text-align:center;"><em><br /><%:Collecting data...%></em></td>
+			<td id="hums"  colspan="1" style="width:16px; text-align:center;"><em><br /><%:Collecting data...%></em></td>
+		</tr>
+	</table>
+	<div id="webcam" <img id="webcam" src="./?action=snapshot" style="margin-left:auto; margin-right:auto; width:864px; height:480px;"></div>
+	<table class="cbi-section-table" id="cntrl2" table border="1">
+		<tr id="cntrl2">
+		  	<th class="cbi-section-table-cell" colspan="4" style="text-align:left; padding-left:1px"><%:CanaBox Server Controls%></th>
+		  	<th class="cbi-section-table-cell" colspan="4" style="text-align:right; padding-left:190px"><%:CanaBox Fan Controls%></th>
+		<tr id="cntrl3">
+		  	<td id="cntrl2" colspan="4" style="text-align:left;">
+				<div class="content_wrapper_div_col">
+        		<!--TILT UP-->
+        		<span id="tilt_up_btn" class="material-icons-outlined">expand_less</span>
+        		<div class="wrapper_div_row">
+            			<!--PAN LEFT-->
+            			<span id="pan_left_btn" class="material-icons-outlined">chevron_left</span>
+            			<!--HOME-->
+            			<span id="home_btn" class="material-icons-outlined">home</span>
+            			<!--PAN RIGHT-->
+            			<span id="pan_right_btn" class="material-icons-outlined">chevron_right</span>
+        		</div>
+        		<span id="tilt_down_btn" class="material-icons-outlined">expand_more</span>
+    		</div>
+    		<div class="wrapper_div_row">
+        		<!--ZOOM OUT-->
+        		<span id="zoom_in_btn" class="material-icons-outlined">add</span>
+        		<span id="zoom_out_btn" class="material-icons-outlined">remove</span>
+    		</div>
+
+	</div>		  	<td id="cntrl3" colspan="5" style="text-align:right;">
+				<input type="button" class="btn cbi-button cbi-button-apply" value="<%:Exhaust%>" onclick="return fan1(this)" />
+				<input type="button" class="btn cbi-button cbi-button-apply" value="<%:Intake%>" onclick="return fan2(this)" />
+				<input type="button" class="btn cbi-button cbi-button-apply" value="<%:Humidifier%>" onclick="return fan3(this)" />
+				<input type="button" class="btn cbi-button cbi-button-apply" value="<%:Ballast%>" onclick="return fan4(this)" />
+		    </td></td>
+		 </tr>
+	</table>
+</fieldset>
+
+<%-
+	require "luci.util"
+	require "nixio.fs"
+
+	local plugins = nixio.fs.dir(luci.util.libpath() .. "/view/admin_cbox/cbox")
+	if plugins then
+		local inc
+		for inc in plugins do
+			if inc:match("%.htm$") then
+				include("admin_cbox/cbox/" .. inc:gsub("%.htm$", ""))
+			end
+		end
+	end
+-%>
+
+<script>
+        let zoom = 0;
+        let pan = 0;
+        let tilt = 0;
+        // ZOOM IN 
+        document.querySelector("#zoom_in_btn").addEventListener("click", () => {
+            console.log("(Zoom +) btn clicked");
+            if(zoom < 10){
+                zoom = zoom + 1;
+            } else
+            {
+                zoom = 10;
+            }
+                
+            let response = fetch(`http://./?action=command&dest=0&plugin=0&id=10094861&group=1&value=${zoom}`, {
+                method: "GET",
+                headers: {
+                            "Content-type": "text/plain; charset=utf-8"
+                        }
+            });
+            return response;
+        });
+;
+        // ZOOM OUT
+        document.querySelector("#zoom_out_btn").addEventListener("click", () => {
+            console.log("(Zoom -) btn clicked");
+            if(zoom > 1){
+                zoom = zoom - 1;
+            } else
+            {
+                zoom = 0;
+            }
+                
+            let response = fetch(`http://127.0.0.1/:8080/?action=command&dest=0&plugin=0&id=10094861&group=1&value=${zoom}`, {
+                method: "GET",
+                headers: {
+                            "Content-type": "text/plain; charset=utf-8"
+                        }
+            });
+            return response;
+        });
+        // PAN LEFT
+        document.querySelector("#pan_left_btn").addEventListener("click", () => {
+            console.log("(<< Pan) btn clicked");
+            if(pan > 3600){
+                pan = pan - 3600;
+            } else
+            {
+                pan = 0;
+            }
+                
+        
+            let response = fetch(`http://192.168.1.1:8080/?action=command&dest=0&plugin=0&id=10094856&group=1&value=${pan}`, {
+                method: "GET",
+                headers: {
+                            "Content-type": "text/plain; charset=utf-8"
+                        }
+            });
+            return response;
+        });
+        // PAN RIGHT
+        document.querySelector("#pan_right_btn").addEventListener("click", () => {
+            console.log("(Pan >>) btn clicked");
+            if(pan < 68400){
+                pan = pan + 3600;
+            } else
+            {
+                pan = 68400;
+            }
+                
+        
+            let response = fetch(`http://192.168.1.1:8080/?action=command&dest=0&plugin=0&id=10094856&group=1&value=${pan}`, {
+                method: "GET",
+                headers: {
+                            "Content-type": "text/plain; charset=utf-8"
+                        }
+            });
+            return response;
+        });
+        // TILT UP
+        document.querySelector("#tilt_up_btn").addEventListener("click", () => {
+            console.log("(Tilt >) btn clicked");
+            if(tilt < 50400 ){
+                tilt = tilt + 3600;
+            } else
+            {
+                tilt = 50400;
+            }
+                
+        
+            let response = fetch(`http://192.168.1.1:8080/?action=command&dest=0&plugin=0&id=10094857&group=1&value=${tilt}`, {
+                method: "GET",
+                headers: {
+                            "Content-type": "text/plain; charset=utf-8"
+                        }
+            });
+            return response
+        });
+        // TILT DOWN
+        document.querySelector("#tilt_down_btn").addEventListener("click", () => {
+            console.log("(Tilt -) btn clicked");
+            if(tilt > 3600){
+                tilt = tilt - 3600;
+            } else
+            {
+                tilt = 0;
+            }
+                
+        
+            let response = fetch(`http://192.168.1.1:8080/?action=command&dest=0&plugin=0&id=10094857&group=1&value=${tilt}`, {
+                method: "GET",
+                headers: {
+                            "Content-type": "text/plain; charset=utf-8"
+                        }
+            });
+            return response;
+        });
+        // HOME BUTTON
+        document.querySelector("#home_btn").addEventListener("click", () => {
+            console.log("(Home) btn clicked");
+            // zero tilt
+            let tilt_response = fetch("http://canabox:8080/?action=command&dest=0&plugin=0&id=10094857&group=1&value=0", {
+                method: "GET",
+                headers: {
+                            "Content-type": "text/plain; charset=utf-8"
+                        }
+            });
+            // zero pan
+            let pan_response = fetch("http://canabox:8080/?action=command&dest=0&plugin=0&id=10094856&group=1&value=0", {
+                method: "GET",
+                headers: {
+                            "Content-type": "text/plain; charset=utf-8"
+                        }
+            });
+            // zero zoom
+            let zoom_response = fetch("http://canabox:8080/?action=command&dest=0&plugin=0&id=10094861&group=1&value=0", {
+                method: "GET",
+                headers: {
+                            "Content-type": "text/plain; charset=utf-8"
+                        }
+            });
+            zoom =0; 
+            pan = 0; 
+            tilt = 0;
+            return 0;
+        });
+    </script>
+</body>
+<%+footer%>

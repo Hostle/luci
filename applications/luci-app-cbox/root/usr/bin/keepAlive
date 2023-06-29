@@ -1,0 +1,23 @@
+#! /usr/bin/lua
+
+function isRunning(pname)
+  local cmd = string.format("pidof %s", tostring(pname));
+  local file = io.popen(cmd)
+  local pid = file:read("*l")
+  file:close()
+  if pid then return true end
+ return false
+end
+
+local function keepAlive()
+	if not(isRunning("cboxStatus") and isRunning("cannabox"))then 
+		--local file = io.popen("cboxStatus &");
+		--file:close();
+		print("cboxStatus not running !!!");
+	end;
+  return;
+end
+
+while(isRunning("cannabox")) do
+	keepAlive();
+end

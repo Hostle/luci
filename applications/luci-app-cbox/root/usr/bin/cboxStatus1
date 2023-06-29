@@ -1,0 +1,41 @@
+#! /usr/bin/lua
+require ("nixio")
+--## ARDUINO UNO R3 / MEGA  ##--
+local file = io.popen("ls /dev | grep 'USB*' ")
+local pname = file:read("*l"); file:close();
+local portName = string.format("/dev/%s", tostring(pname)) or 0;
+local payload = "arduino-serial-lua -b 9600 -t 2100 -p "..portName.." -r -F &"
+
+function readSensors()
+	if(isRunning("arduino-serial-lua")) then 
+		return(2);
+	else
+		file = assert(io.popen(payload)); file:close();
+  		return(0);
+	end
+  return(1);
+end
+
+
+function isRunning(pname)
+  local cmd = string.format("pidof %s", tostring(pname));
+  local file = io.popen(cmd)
+  local pid = file:read("*l"); file:close();
+  if pid then return true end
+ return false
+end
+
+local cbox = isRunning("cboxServer");
+
+while(cbox) do
+	local suc = readSensors()
+	if(suc == 0 ) then
+		print("READ SENSORS SUCCESSFULLY");
+		nixio.nanosleep(2);
+	elseif(suc == 2 ) then
+		print("SENSORS ARE BUSY");
+	elseif( suc == 1) then
+		print("FAILED TO READ SENSORS");
+	end
+
+end	
