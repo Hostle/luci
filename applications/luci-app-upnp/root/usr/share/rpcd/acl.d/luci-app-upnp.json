@@ -1,6 +1,6 @@
 {
-	"luci-app-ddns": {
-		"description": "Grant access to upnp procedures",
+	"luci-app-upnp": {
+		"description": "Grant access to UPnP IGD & PCP/NAT-PMP",
 		"read": {
 			"ubus": {
 				"luci.upnp": [ "get_status" ],

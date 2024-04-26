@@ -77,6 +77,7 @@ if (valman == "0") then
         translate("DNSSEC NTP Fix"),
         translate("Break the loop where DNSSEC needs NTP and NTP needs DNS"))
     nvd.optional = true
+    nvd.default = true
     nvd:depends("validator", true)
 
     prt = s1:taboption("basic", Value, "listen_port",
@@ -235,7 +236,7 @@ if (valman == "0") then
 
     pro = s1:taboption("resource", ListValue, "protocol",
         translate("Recursion Protocol"),
-        translate("Chose the IP versions used upstream and downstream"))
+        translate("Choose the IP versions used upstream and downstream"))
     pro:value("default", translate("Default"))
     pro:value("ip4_only", translate("IP4 Only"))
     pro:value("ip6_local", translate("IP4 All and IP6 Local"))

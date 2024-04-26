@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2022-11-25 14:34+0000\n"
+"PO-Revision-Date: 2023-07-17 15:06+0000\n"
 "Last-Translator: drax red <drax@outlook.dk>\n"
 "Language-Team: Danish <https://hosted.weblate.org/projects/openwrt/"
 "luci_modules_luci-mod-dsl/da/>\n"
@@ -8,10 +8,10 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.15-dev\n"
+"X-Generator: Weblate 5.0-dev\n"
 
 #: modules/luci-mod-dsl/htdocs/luci-static/resources/view/status/dsl/stats.js:157
-msgid "ATM Header Error Code Errors (HEC-P)"
+msgid "ATM Header Error Control Errors (HEC-P)"
 msgstr ""
 
 #: modules/luci-mod-dsl/htdocs/luci-static/resources/view/status/dsl/stats.js:111
@@ -106,14 +106,6 @@ msgstr ""
 msgid "Grant access to luci-mod-dsl"
 msgstr ""
 
-#: modules/luci-mod-dsl/htdocs/luci-static/resources/view/status/dsl/spectrum.js:25
-msgid ""
-"Graphs below show Signal-to-noise ratio, Bit allocation, Quiet line noise "
-"and Channel characteristics function (HLOG) per sub-carrier."
-msgstr ""
-"Nedenstående grafer viser signal-til-støj-forhold, bitallokering, stille "
-"linjestøj og kanalkarakteristikfunktion (HLOG) pr. sub-carrier."
-
 #: modules/luci-mod-dsl/htdocs/luci-static/resources/view/status/dsl/stats.js:125
 msgid "Impulse Noise Protection (INP)"
 msgstr ""
@@ -144,7 +136,7 @@ msgstr ""
 
 #: modules/luci-mod-dsl/htdocs/luci-static/resources/view/status/dsl/stats.js:92
 msgid "Line State"
-msgstr ""
+msgstr "Linjetilstand"
 
 #: modules/luci-mod-dsl/htdocs/luci-static/resources/view/status/dsl/stats.js:94
 msgid "Line Uptime"
@@ -237,6 +229,36 @@ msgstr ""
 msgid "Sub-carrier"
 msgstr "Sub-carrier"
 
+#: modules/luci-mod-dsl/htdocs/luci-static/resources/view/status/dsl/spectrum.js:65
+msgid ""
+"The diagram shows the Channel Characteristics Function (HLOG) per subcarrier "
+"in uplink and downlink direction"
+msgstr ""
+
+#: modules/luci-mod-dsl/htdocs/luci-static/resources/view/status/dsl/spectrum.js:55
+msgid ""
+"The diagram shows the quiet line noise (QLN) per subcarrier in uplink and "
+"downlink direction"
+msgstr ""
+
+#: modules/luci-mod-dsl/htdocs/luci-static/resources/view/status/dsl/spectrum.js:25
+msgid ""
+"The following diagrams show graphically prepared DSL characteristics that "
+"are important for evaluating the DSL connection."
+msgstr ""
+
+#: modules/luci-mod-dsl/htdocs/luci-static/resources/view/status/dsl/spectrum.js:45
+msgid ""
+"The graph shows th amount of bits actually allocated per subcarrier in the "
+"uplink and downlink direction"
+msgstr ""
+
+#: modules/luci-mod-dsl/htdocs/luci-static/resources/view/status/dsl/spectrum.js:35
+msgid ""
+"The graph shows the signal to noise ratio (SNR) per subcarrier in the uplink "
+"and downlink direction"
+msgstr ""
+
 #: modules/luci-mod-dsl/htdocs/luci-static/resources/view/status/dsl/stats.js:145
 msgid "Unavailable Seconds (UAS)"
 msgstr ""
@@ -285,6 +307,13 @@ msgstr ""
 #: modules/luci-mod-dsl/htdocs/luci-static/resources/view/status/dsl/stats.js:104
 msgid "xTU-C Vendor ID"
 msgstr ""
+
+#~ msgid ""
+#~ "Graphs below show Signal-to-noise ratio, Bit allocation, Quiet line noise "
+#~ "and Channel characteristics function (HLOG) per sub-carrier."
+#~ msgstr ""
+#~ "Nedenstående grafer viser signal-til-støj-forhold, bitallokering, stille "
+#~ "linjestøj og kanalkarakteristikfunktion (HLOG) pr. sub-carrier."
 
 #~ msgid "Grant access to luci-mod-dsl spectrum"
 #~ msgstr "Giv adgang til luci-mod-dsl-spektrum"

@@ -1,14 +1,14 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2023-05-17 11:53+0000\n"
-"Last-Translator: Daniele Olivo <daniele.olivo1996@gmail.com>\n"
+"PO-Revision-Date: 2024-04-19 13:18+0000\n"
+"Last-Translator: ettore <hettore.giacomini@gmail.com>\n"
 "Language-Team: Italian <https://hosted.weblate.org/projects/openwrt/"
 "luciapplicationsmwan3/it/>\n"
 "Language: it\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.18-dev\n"
+"X-Generator: Weblate 5.5-dev\n"
 
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/network/interface.js:187
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/network/interface.js:203
@@ -68,15 +68,18 @@ msgid ""
 "%s: Name of Physical device which interface went up or down (e.g. \"eth0\" "
 "or \"wwan0\")"
 msgstr ""
+"%s: nome del dispositivo fisico la cui interfaccia si è accesa o spenta (es. "
+"\"eth0\" o \"wwan0\")"
 
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/network/notify.js:39
 msgid "%s: Name of the action that triggered this event"
-msgstr ""
+msgstr "%s: nome dell'azione che ha scatenato l'evento"
 
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/network/notify.js:44
 msgid ""
 "%s: Name of the interface which went up or down (e.g. \"wan\" or \"wwan\")"
 msgstr ""
+"%s: nome dell'interfaccia che si è accesa o spenta (es. \"wan\" o \"wwan\")"
 
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/network/notify.js:40
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/network/notify.js:41
@@ -164,7 +167,7 @@ msgstr "Diagnostica"
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/status/overview.js:56
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/status/include/90_mwan3.js:65
 msgid "Disabled"
-msgstr "Disabilitato"
+msgstr "Disattivato"
 
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/network/interface.js:243
 msgid ""
@@ -287,7 +290,7 @@ msgstr "Solo IPv6"
 
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/network/globals.js:31
 msgid "Info"
-msgstr "Informazioni"
+msgstr "Info"
 
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/network/interface.js:34
 msgid "Initial state"
@@ -604,7 +607,7 @@ msgstr ""
 
 #: applications/luci-app-mwan3/root/usr/share/luci/menu.d/luci-app-mwan3.json:88
 msgid "Rule"
-msgstr ""
+msgstr "Regola"
 
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/network/rule.js:20
 msgid "Rules are based on IP address, port or protocol."
@@ -737,7 +740,7 @@ msgstr ""
 
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/network/notify.js:20
 msgid "Unable to save contents: %s"
-msgstr ""
+msgstr "Impossibile salvare i contenuti: %s"
 
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/status/overview.js:33
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/status/overview.js:47
@@ -752,7 +755,7 @@ msgstr ""
 
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/network/globals.js:29
 msgid "Warning"
-msgstr ""
+msgstr "Avviso"
 
 #: applications/luci-app-mwan3/htdocs/luci-static/resources/view/mwan3/network/policy.js:38
 msgid ""

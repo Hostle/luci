@@ -1,14 +1,14 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2023-05-17 11:53+0000\n"
-"Last-Translator: Daniele Olivo <daniele.olivo1996@gmail.com>\n"
+"PO-Revision-Date: 2024-04-19 13:18+0000\n"
+"Last-Translator: ettore <hettore.giacomini@gmail.com>\n"
 "Language-Team: Italian <https://hosted.weblate.org/projects/openwrt/"
 "luciapplicationsdcwapd/it/>\n"
 "Language: it\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.18-dev\n"
+"X-Generator: Weblate 5.5-dev\n"
 
 #: applications/luci-app-dcwapd/luasrc/model/cbi/dcwapd/dcwapd.lua:72
 #: applications/luci-app-dcwapd/luasrc/model/cbi/dcwapd/dcwapd.lua:121
@@ -47,25 +47,25 @@ msgstr "Porta di destinazione"
 
 #: applications/luci-app-dcwapd/luasrc/model/cbi/dcwapd/dcwapd.lua:21
 msgid "Dual Channel Wi-Fi AP Daemon"
-msgstr ""
+msgstr "Demone AP Wi-Fi a doppio canale"
 
 #: applications/luci-app-dcwapd/root/usr/share/luci/menu.d/luci-app-dcwapd.json:3
 msgid "Dual Channel WiFi"
-msgstr ""
+msgstr "WiFi a doppio canale"
 
 #: applications/luci-app-dcwapd/luasrc/model/cbi/dcwapd/dcwapd.lua:34
 #: applications/luci-app-dcwapd/luasrc/model/cbi/dcwapd/dcwapd.lua:52
 msgid "Enable"
-msgstr "Abilita"
+msgstr "Abilitare"
 
 #: applications/luci-app-dcwapd/luasrc/model/cbi/dcwapd/dcwapd.lua:154
 msgid "Filter Sets"
-msgstr ""
+msgstr "Set di filtri"
 
 #: applications/luci-app-dcwapd/luasrc/model/cbi/dcwapd/dcwapd.lua:166
 #: applications/luci-app-dcwapd/luasrc/model/cbi/dcwapd/dcwapd.lua:179
 msgid "Filters"
-msgstr ""
+msgstr "Filtri"
 
 #: applications/luci-app-dcwapd/luasrc/model/cbi/dcwapd/dcwapd.lua:27
 msgid "General"

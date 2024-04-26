@@ -86,7 +86,7 @@ return view.extend({
 
 			o = s.option(form.Flag, 'flow_offloading_hw',
 				_('Hardware flow offloading'),
-				_('Requires hardware NAT support. Implemented at least for mt7621'));
+				_('Requires hardware NAT support.'));
 			o.optional = true;
 			o.depends('flow_offloading', '1');
 		}
@@ -144,7 +144,7 @@ return view.extend({
 		var p = [
 			s.taboption('general', form.ListValue, 'input', _('Input')),
 			s.taboption('general', form.ListValue, 'output', _('Output')),
-			s.taboption('general', form.ListValue, 'forward', _('Forward'))
+			s.taboption('general', form.ListValue, 'forward', _('Intra zone forward'))
 		];
 
 		for (var i = 0; i < p.length; i++) {

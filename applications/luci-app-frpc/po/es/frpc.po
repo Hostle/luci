@@ -2,8 +2,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2023-02-22 12:40+0000\n"
-"Last-Translator: gallegonovato <fran-carro@hotmail.es>\n"
+"PO-Revision-Date: 2024-03-06 09:49+0000\n"
+"Last-Translator: Franco Castillo <castillofrancodamian@gmail.com>\n"
 "Language-Team: Spanish <https://hosted.weblate.org/projects/openwrt/"
 "luciapplicationsfrpc/es/>\n"
 "Language: es\n"
@@ -11,7 +11,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.16-dev\n"
+"X-Generator: Weblate 5.5-dev\n"
 
 #: applications/luci-app-frpc/htdocs/luci-static/resources/view/frpc.js:214
 msgid "Add new proxy..."
@@ -44,10 +44,10 @@ msgstr "Usuario del administrador"
 #: applications/luci-app-frpc/htdocs/luci-static/resources/view/frpc.js:28
 msgid ""
 "AdminAddr specifies the address that the admin server binds to.<br />By "
-"default, this value is \"127.0.0.1\"."
+"default, this value is \"0.0.0.0\"."
 msgstr ""
 "AdminAddr especifica la dirección a la que se une el servidor de "
-"administración.<br />De manera predeterminada, este valor es \"127.0.0.1\"."
+"administración.<br />De manera predeterminada, este valor es \"0.0.0.0\"."
 
 #: applications/luci-app-frpc/htdocs/luci-static/resources/view/frpc.js:29
 msgid ""
@@ -138,7 +138,7 @@ msgstr "Salir cuando falla el inicio de sesión"
 
 #: applications/luci-app-frpc/htdocs/luci-static/resources/view/frpc.js:218
 msgid "General Settings"
-msgstr "Configuración general"
+msgstr "Ajustes generales"
 
 #: applications/luci-app-frpc/root/usr/share/rpcd/acl.d/luci-app-frpc.json:3
 msgid "Grant access to LuCI app frpc"
@@ -399,10 +399,10 @@ msgstr "Puerto del servidor"
 #: applications/luci-app-frpc/htdocs/luci-static/resources/view/frpc.js:20
 msgid ""
 "ServerAddr specifies the address of the server to connect to.<br />By "
-"default, this value is \"0.0.0.0\"."
+"default, this value is \"127.0.0.1\"."
 msgstr ""
 "ServerAddr especifica la dirección del servidor al que conectarse.<br />Por "
-"defecto, este valor es \"0.0.0.0\"."
+"defecto, este valor es \"127.0.0.1\"."
 
 #: applications/luci-app-frpc/htdocs/luci-static/resources/view/frpc.js:21
 msgid ""

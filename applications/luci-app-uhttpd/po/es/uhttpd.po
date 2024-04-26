@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "POT-Creation-Date: \n"
-"PO-Revision-Date: 2022-02-07 07:32+0000\n"
+"PO-Revision-Date: 2024-03-06 09:48+0000\n"
 "Last-Translator: Franco Castillo <castillofrancodamian@gmail.com>\n"
 "Language-Team: Spanish <https://hosted.weblate.org/projects/openwrt/"
 "luciapplicationsuhttpd/es/>\n"
@@ -11,7 +11,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.11-dev\n"
+"X-Generator: Weblate 5.5-dev\n"
 
 #: applications/luci-app-uhttpd/htdocs/luci-static/resources/view/uhttpd/uhttpd.js:160
 msgid ""
@@ -29,7 +29,7 @@ msgstr "Un servidor HTTP(S) liviano de un solo hilo"
 
 #: applications/luci-app-uhttpd/htdocs/luci-static/resources/view/uhttpd/uhttpd.js:25
 msgid "Advanced Settings"
-msgstr "Configuración avanzada"
+msgstr "Ajustes avanzados"
 
 #: applications/luci-app-uhttpd/htdocs/luci-static/resources/view/uhttpd/uhttpd.js:160
 msgid "Aliases"
@@ -41,7 +41,7 @@ msgstr "Directorio base para archivos a ser servidos"
 
 #: applications/luci-app-uhttpd/htdocs/luci-static/resources/view/uhttpd/uhttpd.js:27
 #: applications/luci-app-uhttpd/htdocs/luci-static/resources/view/uhttpd/uhttpd.js:55
-msgid "Bind to specific interface:port (by specifying interface address"
+msgid "Bind to specific interface:port (by specifying interface address)"
 msgstr ""
 "Enlace a una interfaz específica: puerto (especificando la dirección de la "
 "interfaz"
@@ -101,6 +101,8 @@ msgstr "Activar el soporte de recursos de origen cruzado JSON-RPC"
 msgid ""
 "Files can only be uploaded and saved to the /etc/luci-uploads directory."
 msgstr ""
+"Los archivos solo se pueden cargar y guardar en el directorio /etc/luci-"
+"uploads."
 
 #: applications/luci-app-uhttpd/htdocs/luci-static/resources/view/uhttpd/uhttpd.js:24
 msgid "For settings primarily geared to serving more than the web UI"
@@ -118,7 +120,7 @@ msgstr "Ruta real completa al controlador para scripts Lua"
 
 #: applications/luci-app-uhttpd/htdocs/luci-static/resources/view/uhttpd/uhttpd.js:23
 msgid "General Settings"
-msgstr "Configuración general"
+msgstr "Ajustes generales"
 
 #: applications/luci-app-uhttpd/root/usr/share/rpcd/acl.d/luci-app-uhttpd.json:3
 msgid "Grant UCI access for luci-app-uhttpd"

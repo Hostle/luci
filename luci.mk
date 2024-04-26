@@ -18,7 +18,7 @@ LUCI_MINIFY_LUA?=1
 LUCI_MINIFY_CSS?=1
 LUCI_MINIFY_JS?=1
 
-# Language code titles
+#LUCI_LANG_START
 LUCI_LANG.ar=العربية (Arabic)
 LUCI_LANG.bg=български (Bulgarian)
 LUCI_LANG.bn_BD=বাংলা (Bengali)
@@ -36,13 +36,14 @@ LUCI_LANG.hu=Magyar (Hungarian)
 LUCI_LANG.it=Italiano (Italian)
 LUCI_LANG.ja=日本語 (Japanese)
 LUCI_LANG.ko=한국어 (Korean)
+LUCI_LANG.lt=Lietuvių (Lithuanian)
 LUCI_LANG.mr=Marāṭhī (Marathi)
 LUCI_LANG.ms=Bahasa Melayu (Malay)
 LUCI_LANG.nb_NO=Norsk (Norwegian)
 LUCI_LANG.nl=Nederlands (Dutch)
 LUCI_LANG.pl=Polski (Polish)
-LUCI_LANG.pt_BR=Português do Brasil (Brazilian Portuguese)
 LUCI_LANG.pt=Português (Portuguese)
+LUCI_LANG.pt_BR=Português do Brasil (Brazilian Portuguese)
 LUCI_LANG.ro=Română (Romanian)
 LUCI_LANG.ru=Русский (Russian)
 LUCI_LANG.sk=Slovenčina (Slovak)
@@ -52,6 +53,7 @@ LUCI_LANG.uk=Українська (Ukrainian)
 LUCI_LANG.vi=Tiếng Việt (Vietnamese)
 LUCI_LANG.zh_Hans=简体中文 (Chinese Simplified)
 LUCI_LANG.zh_Hant=繁體中文 (Chinese Traditional)
+#LUCI_LANG_END
 
 # Submenu titles
 LUCI_MENU.col=1. Collections
@@ -83,18 +85,18 @@ define findrev
       if [ -n "$$1" ]; then
         secs="$$(($$1 % 86400))"; \
         yday="$$(date --utc --date="@$$1" "+%y.%j")"; \
-        printf 'git-%s.%05d-%s' "$$yday" "$$secs" "$$2"; \
+        printf '%s.%05d~%s' "$$yday" "$$secs" "$$2"; \
       else \
-        echo "unknown"; \
+        echo "0"; \
       fi; \
     else \
       ts=$$(find . -type f $(if $(1),-not) -path './po/*' -printf '%T@\n' 2>/dev/null | sort -rn | head -n1 | cut -d. -f1); \
       if [ -n "$$ts" ]; then \
         secs="$$(($$ts % 86400))"; \
         date="$$(date --utc --date="@$$ts" "+%y%m%d")"; \
-        printf '%s.%05d' "$$date" "$$secs"; \
+        printf '0.%s.%05d' "$$date" "$$secs"; \
       else \
-        echo "unknown"; \
+        echo "0"; \
       fi; \
     fi \
   )
@@ -129,10 +131,10 @@ include $(INCLUDE_DIR)/package.mk
 
 # LUCI_SUBMENU: the submenu-item below the LuCI top-level menu inside OpenWrt menuconfig
 #               usually one of the LUCI_MENU.* definitions
-# LUCI_SUBMENU_DEFAULT: the regular SUBMENU defined by LUCI_TYPE or derrived from the packagename
-# LUCI_SUBMENU_FORCED: manually forced value SUBMENU to set to by explicit definiton
+# LUCI_SUBMENU_DEFAULT: the regular SUBMENU defined by LUCI_TYPE or derived from the packagename
+# LUCI_SUBMENU_FORCED: manually forced value SUBMENU to set to by explicit definition
 #                      can be any string, "none" disables the creation of a submenu
-#                      most usefull in combination with LUCI_CATEGORY, to make the package appear
+#                      most useful in combination with LUCI_CATEGORY, to make the package appear
 #                      anywhere in the menu structure
 LUCI_SUBMENU_DEFAULT=$(if $(LUCI_MENU.$(LUCI_TYPE)),$(LUCI_MENU.$(LUCI_TYPE)),$(LUCI_MENU.app))
 LUCI_SUBMENU=$(if $(LUCI_SUBMENU_FORCED),$(LUCI_SUBMENU_FORCED),$(LUCI_SUBMENU_DEFAULT))
@@ -151,7 +153,7 @@ ifneq ($(LUCI_SUBMENU),none)
 endif
   TITLE:=$(if $(LUCI_TITLE),$(LUCI_TITLE),LuCI $(LUCI_NAME) $(LUCI_TYPE))
   DEPENDS:=$(LUCI_DEPENDS)
-  VERSION:=$(if $(PKG_VERSION),$(PKG_VERSION),$(PKG_SRC_VERSION))
+  VERSION:=$(if $(PKG_VERSION),$(if $(PKG_RELEASE),$(PKG_VERSION)-$(PKG_RELEASE),$(PKG_VERSION)),$(PKG_SRC_VERSION))
   $(if $(LUCI_EXTRA_DEPENDS),EXTRA_DEPENDS:=$(LUCI_EXTRA_DEPENDS))
   $(if $(LUCI_PKGARCH),PKGARCH:=$(LUCI_PKGARCH))
   $(if $(PKG_PROVIDES),PROVIDES:=$(PKG_PROVIDES))
@@ -337,13 +339,6 @@ define LuciTranslation
 	$(foreach po,$(wildcard ${CURDIR}/po/$(2)/*.po), \
 		po2lmo $(po) \
 			$$(1)$(LUCI_LIBRARYDIR)/i18n/$(basename $(notdir $(po))).$(1).lmo;)
-  endef
-
-  define Package/luci-i18n-$(LUCI_BASENAME)-$(1)/postinst
-	[ -n "$$$${IPKG_INSTROOT}" ] || {
-		(. /etc/uci-defaults/luci-i18n-$(LUCI_BASENAME)-$(1)) && rm -f /etc/uci-defaults/luci-i18n-$(LUCI_BASENAME)-$(1)
-		exit 0
-	}
   endef
 
   LUCI_BUILD_PACKAGES += luci-i18n-$(LUCI_BASENAME)-$(1)

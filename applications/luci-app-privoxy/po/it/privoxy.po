@@ -1,14 +1,14 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2023-05-17 11:53+0000\n"
-"Last-Translator: Daniele Olivo <daniele.olivo1996@gmail.com>\n"
+"PO-Revision-Date: 2024-04-19 13:18+0000\n"
+"Last-Translator: ettore <hettore.giacomini@gmail.com>\n"
 "Language-Team: Italian <https://hosted.weblate.org/projects/openwrt/"
 "luciapplicationsprivoxy/it/>\n"
 "Language: it\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 4.18-dev\n"
+"X-Generator: Weblate 5.5-dev\n"
 
 #: applications/luci-app-privoxy/luasrc/model/cbi/privoxy.lua:236
 msgid ""
@@ -33,7 +33,7 @@ msgstr "Una cartella in cui Privoxy può creare file temporanei."
 #: applications/luci-app-privoxy/luasrc/model/cbi/privoxy.lua:84
 #: applications/luci-app-privoxy/luasrc/model/cbi/privoxy.lua:87
 msgid "Access Control"
-msgstr "Controllo Accesso"
+msgstr "Controllo di accesso"
 
 #: applications/luci-app-privoxy/luasrc/model/cbi/privoxy.lua:337
 msgid "Actions that are applied to all sites and maybe overruled later on."
@@ -55,6 +55,8 @@ msgid ""
 "Assumed server-side keep-alive timeout (in seconds) if not specified by the "
 "server."
 msgstr ""
+"Tempo di attesa (in secondi) previsto lato server se non specificato dal "
+"server."
 
 #: applications/luci-app-privoxy/luasrc/model/cbi/privoxy.lua:151
 msgid "Boot delay"
@@ -381,7 +383,7 @@ msgstr ""
 
 #: applications/luci-app-privoxy/luasrc/model/cbi/privoxy.lua:455
 msgid "Syntax:"
-msgstr ""
+msgstr "Sintassi:"
 
 #: applications/luci-app-privoxy/luasrc/model/cbi/privoxy.lua:786
 msgid "Syntax: Client header names delimited by spaces."
@@ -398,7 +400,7 @@ msgstr ""
 #: applications/luci-app-privoxy/luasrc/model/cbi/privoxy.lua:59
 #: applications/luci-app-privoxy/luasrc/model/cbi/privoxy.lua:62
 msgid "System"
-msgstr "SIstema"
+msgstr "Sistema"
 
 #: applications/luci-app-privoxy/luasrc/model/cbi/privoxy.lua:335
 msgid ""

@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2021-09-17 06:52+0000\n"
-"Last-Translator: Mark MA <daomeideshu@gmail.com>\n"
+"PO-Revision-Date: 2024-04-12 14:21+0000\n"
+"Last-Translator: ButterflyOfFire <boffire@users.noreply.hosted.weblate.org>\n"
 "Language-Team: Arabic <https://hosted.weblate.org/projects/openwrt/"
 "luciapplicationsddns/ar/>\n"
 "Language: ar\n"
@@ -9,7 +9,7 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=6; plural=n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 "
 "&& n%100<=10 ? 3 : n%100>=11 ? 4 : 5;\n"
-"X-Generator: Weblate 4.9-dev\n"
+"X-Generator: Weblate 5.5-dev\n"
 
 #: applications/luci-app-ddns/htdocs/luci-static/resources/view/ddns/overview.js:432
 msgid "\"../\" not allowed in path for Security Reason."
@@ -95,7 +95,7 @@ msgstr "جاري التحقق من دعم الخدمة ..."
 
 #: applications/luci-app-ddns/htdocs/luci-static/resources/view/status/include/70_ddns.js:27
 msgid "Configuration"
-msgstr "إعدادات"
+msgstr "ضبط الإعدادات"
 
 #: applications/luci-app-ddns/htdocs/luci-static/resources/view/ddns/overview.js:214
 #: applications/luci-app-ddns/htdocs/luci-static/resources/view/ddns/overview.js:1124
@@ -230,8 +230,8 @@ msgid "Error"
 msgstr "خطأ"
 
 #: applications/luci-app-ddns/htdocs/luci-static/resources/view/ddns/overview.js:1024
-msgid "Error Retry Counter"
-msgstr "عداد إعادة المحاولة خطأ"
+msgid "Error Max Retry Counter"
+msgstr ""
 
 #: applications/luci-app-ddns/htdocs/luci-static/resources/view/ddns/overview.js:1034
 msgid "Error Retry Interval"
@@ -540,7 +540,8 @@ msgid "OPTIONAL: Use non-default DNS-Server to detect 'Registered IP'."
 msgstr "اختياري: استخدم خادم DNS غير افتراضي لاكتشاف \"عنوان IP المسجل\"."
 
 #: applications/luci-app-ddns/htdocs/luci-static/resources/view/ddns/overview.js:1025
-msgid "On Error the script will stop execution after given number of retrys."
+msgid ""
+"On Error the script will stop execution after the given number of retries."
 msgstr ""
 
 #: applications/luci-app-ddns/htdocs/luci-static/resources/view/ddns/overview.js:756
@@ -711,7 +712,7 @@ msgid "The default setting of '0' will retry infinitely."
 msgstr "الإعداد الافتراضي \"0\" سيعيد المحاولة بلا حدود."
 
 #: applications/luci-app-ddns/htdocs/luci-static/resources/view/ddns/overview.js:1035
-msgid "The interval between which each succesive retry will commence."
+msgid "The interval between which each successive retry commences."
 msgstr ""
 "عند حدوث خطأ ، سيتوقف البرنامج النصي عن التنفيذ بعد عدد معين من المحاولات"
 
@@ -915,6 +916,9 @@ msgstr "ثواني"
 #: applications/luci-app-ddns/htdocs/luci-static/resources/view/ddns/overview.js:780
 msgid "to run HTTPS without verification of server certificates (insecure)"
 msgstr "لتشغيل HTTPS بدون التحقق من شهادات الخادم (غير آمن)"
+
+#~ msgid "Error Retry Counter"
+#~ msgstr "عداد إعادة المحاولة خطأ"
 
 #~ msgid "This is the current content of the log file in"
 #~ msgstr "هذا هو المحتوى الحالي لملف السجل في"
